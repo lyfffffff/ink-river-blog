@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#11b4d4",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#101f22",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Newsreader', "Noto Sans SC", sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<!-- Background Settings Page (Simulated) -->
+<div class="relative min-h-screen w-full p-6 opacity-40">
+<header class="flex items-center justify-between mb-8">
+<span class="material-symbols-outlined text-slate-900 dark:text-slate-100">arrow_back_ios</span>
+<h1 class="text-xl font-bold text-slate-900 dark:text-slate-100">个人设置</h1>
+<div class="w-6"></div>
+</header>
+<div class="space-y-6">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">account_circle</span>
+</div>
+<div>
+<h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">墨色山河</h2>
+<p class="text-sm text-slate-500">UID: 8829103</p>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 space-y-4">
+<div class="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-700">
+<span class="text-slate-700 dark:text-slate-300">账号安全</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-slate-100 dark:border-slate-700">
+<span class="text-slate-700 dark:text-slate-300">通知设置</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+<div class="flex justify-between items-center py-2">
+<span class="text-slate-700 dark:text-slate-300">关于我们</span>
+<span class="material-symbols-outlined text-slate-400">chevron_right</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Overlay -->
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+<!-- BottomSheet/Modal Content -->
+<div class="w-full max-w-[420px] bg-white dark:bg-slate-900 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+<!-- BottomSheetHandle for aesthetic -->
+<div class="flex h-6 w-full items-center justify-center">
+<div class="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+</div>
+<div class="px-6 pb-8 pt-2">
+<div class="mb-6 text-center">
+<h3 class="text-2xl font-bold text-slate-900 dark:text-slate-100">修改密码</h3>
+<p class="text-sm text-slate-500 mt-1">请定期更换您的密码以保证账号安全</p>
+</div>
+<div class="space-y-5">
+<!-- Current Password -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">当前密码</label>
+<div class="relative flex items-center">
+<input class="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="请输入当前密码" type="password"/>
+<button class="absolute right-3 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- New Password -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">新密码</label>
+<div class="relative flex items-center">
+<input class="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="请输入 8-16 位新密码" type="password"/>
+<button class="absolute right-3 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+<!-- Confirm Password -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium text-slate-700 dark:text-slate-300">确认新密码</label>
+<div class="relative flex items-center">
+<input class="w-full h-12 px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="请再次输入新密码" type="password"/>
+<button class="absolute right-3 text-slate-400 hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Actions -->
+<div class="mt-8 flex gap-3">
+<button class="flex-1 h-12 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        取消
+                    </button>
+<button class="flex-1 h-12 rounded-lg bg-primary text-white font-medium shadow-lg shadow-primary/20 hover:brightness-105 active:scale-[0.98] transition-all">
+                        保存修改
+                    </button>
+</div>
+</div>
+<!-- Branding Accent -->
+<div class="h-1 w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-20"></div>
+</div>
+</div>
+</body></html>

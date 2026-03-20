@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#11b4d4",
+                        "background-light": "#f6f8f8",
+                        "background-dark": "#101f22",
+                    },
+                    fontFamily: {
+                        "display": ["Newsreader", "serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Newsreader', serif;
+        }
+        .chinese-serif {
+            font-family: "STSong", "SimSun", "Noto Serif SC", serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display">
+<div class="max-w-2xl mx-auto min-h-screen bg-white dark:bg-slate-900 shadow-sm">
+<!-- Top Navigation -->
+<nav class="flex items-center justify-between p-6">
+<div class="text-slate-900 dark:text-slate-100 cursor-pointer">
+<span class="material-symbols-outlined">arrow_back</span>
+</div>
+<h1 class="text-lg font-bold tracking-tight chinese-serif">关于我</h1>
+<div class="text-slate-900 dark:text-slate-100 cursor-pointer">
+<span class="material-symbols-outlined">share</span>
+</div>
+</nav>
+<!-- Profile Header -->
+<header class="flex flex-col items-center px-6 py-10 text-center">
+<div class="relative mb-6">
+<div class="w-32 h-32 rounded-full border-2 border-primary/20 p-1">
+<div class="w-full h-full rounded-full bg-cover bg-center" data-alt="A minimalist portrait of a man in natural lighting" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDvYztcoWLQ_hLutCQcq30ov949jbX8G6DjBcQVt4VT5dvN3drPGaNoq45DPi7Pj_bTjkqMFMMzKgH-9X18hCImyR2kM2DbsNEFe4-0SkyXCtbnI59NfMm6FIVUC-zdKFYaKuZydH4osS5o_OKYv9XM2VE4GjitI1niDS-H2Jk0M28NEasJa8lWpmjym9FmASN1z36fdP7ocXhM8IRa14CGJg0O_ZCbGU4yMBJMPBlxNu7whTcQ4nm6Du9iu2WpIORQ4tNy-M8ONvnP')">
+</div>
+</div>
+</div>
+<h2 class="text-3xl font-bold mb-2 chinese-serif">墨色山河</h2>
+<p class="text-primary italic mb-1">“行到水穷处，坐看云起时”</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm">生活记录员 / 技术探索者 / 摄影爱好者</p>
+</header>
+<!-- Introduction -->
+<section class="px-8 py-6">
+<h3 class="text-xl font-bold mb-4 border-l-4 border-primary pl-4 chinese-serif">个人简介</h3>
+<div class="space-y-4 text-slate-700 dark:text-slate-300 leading-relaxed text-base">
+<p>
+                    你好，我是墨色山河。一名穿梭于代码与光影之间的记录者。
+                </p>
+<p>
+                    作为一名『生活记录员』，我喜欢捕捉城市角落里那些稍纵即逝的诗意瞬间；作为一名『技术探索者』，我热衷于用极简的代码勾勒复杂的数字世界。我始终相信，优秀的设计与纯粹的技术应当如同中国水墨画一般，既有留白的艺术，又有深邃的内涵。
+                </p>
+<p>
+                    在这里，我分享对前沿技术的思考，也记录生活中的平凡与不凡。欢迎来到我的精神家园。
+                </p>
+</div>
+</section>
+<!-- Skillset / Interests -->
+<section class="px-8 py-6">
+<h3 class="text-xl font-bold mb-6 border-l-4 border-primary pl-4 chinese-serif">兴趣与技能</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary mr-3">camera_enhance</span>
+<span class="text-sm font-medium">摄影记录</span>
+</div>
+<div class="flex items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary mr-3">terminal</span>
+<span class="text-sm font-medium">全栈开发</span>
+</div>
+<div class="flex items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary mr-3">palette</span>
+<span class="text-sm font-medium">UI 设计</span>
+</div>
+<div class="flex items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+<span class="material-symbols-outlined text-primary mr-3">auto_stories</span>
+<span class="text-sm font-medium">哲学思考</span>
+</div>
+</div>
+</section>
+<!-- Experience Timeline -->
+<section class="px-8 py-6">
+<h3 class="text-xl font-bold mb-8 border-l-4 border-primary pl-4 chinese-serif">创作历程</h3>
+<div class="space-y-8 relative before:content-[''] before:absolute before:left-[11px] before:top-0 before:h-full before:w-[2px] before:bg-slate-100 dark:before:bg-slate-800">
+<div class="relative pl-8">
+<div class="absolute left-0 top-1.5 w-6 h-6 bg-white dark:bg-slate-900 border-2 border-primary rounded-full flex items-center justify-center">
+<div class="w-2 h-2 bg-primary rounded-full"></div>
+</div>
+<div>
+<span class="text-xs font-bold text-primary uppercase tracking-widest">2023 - 至今</span>
+<h4 class="font-bold text-slate-900 dark:text-slate-100 mt-1">创立“墨色山河”个人品牌</h4>
+<p class="text-sm text-slate-500 mt-1">开始系统性地输出技术博文与摄影作品，探索极简主义数字美学。</p>
+</div>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1.5 w-6 h-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center">
+<div class="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+</div>
+<div>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-widest">2020 - 2022</span>
+<h4 class="font-bold text-slate-900 dark:text-slate-100 mt-1">高级前端工程师</h4>
+<p class="text-sm text-slate-500 mt-1">在互联网大厂深耕 UI 组件库与前端工程化，参与多个千万级日活项目。</p>
+</div>
+</div>
+<div class="relative pl-8">
+<div class="absolute left-0 top-1.5 w-6 h-6 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center">
+<div class="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+</div>
+<div>
+<span class="text-xs font-bold text-slate-400 uppercase tracking-widest">2018</span>
+<h4 class="font-bold text-slate-900 dark:text-slate-100 mt-1">第一台相机与第一行代码</h4>
+<p class="text-sm text-slate-500 mt-1">开启了对世界不同的观察视角，决定投身于创造性的数字领域。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Contact / Social -->
+<section class="px-8 py-8 border-t border-slate-100 dark:border-slate-800">
+<h3 class="text-center font-bold mb-6 chinese-serif">与我联络</h3>
+<div class="flex justify-center gap-8">
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-3xl">mail</span>
+</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-3xl">code</span>
+</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-3xl">camera</span>
+</a>
+<a class="text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-3xl">rss_feed</span>
+</a>
+</div>
+</section>
+<!-- Footer -->
+<footer class="p-8 text-center text-slate-400 text-xs">
+<p>© 2024 墨色山河. 保留所有权利。</p>
+<p class="mt-1">由 极简主义 与 热情 驱动</p>
+</footer>
+</div>
+</body></html>
