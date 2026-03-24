@@ -12,9 +12,11 @@ class BlogPost {
     required this.content,
     required this.readMinutes,
     required this.tags,
+    this.authorId = 'u_1',
   });
 
   final String id;
+  final String authorId;
   final String title;
   final String excerpt;
   final String category;

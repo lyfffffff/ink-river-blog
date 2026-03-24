@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../constants/color.dart';
 import '../models/blog_post.dart';
+import '../services/permission_service.dart';
 
 /// 操作类型
 enum ArticleAction {
@@ -40,6 +41,7 @@ class _ArticleActionSheetContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final maxHeight = MediaQuery.of(context).size.height * 0.85;
+    final canManage = PermissionService.canManagePost(post);
     return Container(
       constraints: BoxConstraints(maxHeight: maxHeight),
       decoration: BoxDecoration(
@@ -87,11 +89,12 @@ class _ArticleActionSheetContent extends StatelessWidget {
                 ],
               ),
             ),
-              _ActionItem(
-                icon: Icons.edit_rounded,
-                label: '编辑文章',
-                onTap: () => context.pop(ArticleAction.edit),
-              ),
+              if (canManage)
+                _ActionItem(
+                  icon: Icons.edit_rounded,
+                  label: '编辑文章',
+                  onTap: () => context.pop(ArticleAction.edit),
+                ),
               _ActionItem(
                 icon: Icons.vertical_align_top_rounded,
                 label: '置顶文章',
@@ -102,12 +105,13 @@ class _ArticleActionSheetContent extends StatelessWidget {
                 label: '查看数据',
                 onTap: () => context.pop(ArticleAction.stats),
               ),
-              _ActionItem(
-                icon: Icons.delete_outline_rounded,
-                label: '删除文章',
-                isDestructive: true,
-                onTap: () => context.pop(ArticleAction.delete),
-              ),
+              if (canManage)
+                _ActionItem(
+                  icon: Icons.delete_outline_rounded,
+                  label: '删除文章',
+                  isDestructive: true,
+                  onTap: () => context.pop(ArticleAction.delete),
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                 child: SizedBox(

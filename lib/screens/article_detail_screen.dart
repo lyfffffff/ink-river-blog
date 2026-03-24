@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_quill/flutter_quill.dart';
@@ -18,9 +19,12 @@ import '../constants/app_constants.dart';
 import '../routes/app_router.dart';
 import '../utils/toast_util.dart';
 import '../constants/color.dart';
-import '../services/favorite_service.dart';
 import '../core/app_typography.dart';
 import '../repositories/blog_repository.dart';
+import '../controllers/article_detail_controller.dart';
+import '../controllers/app_controllers.dart';
+import '../services/permission_service.dart';
+import '../services/follow_service.dart';
 import '../models/blog_post.dart';
 import '../models/comment.dart';
 
@@ -28,10 +32,12 @@ import '../models/comment.dart';
 bool _isDeltaContent(String content) => content.trim().startsWith('[');
 
 /// 从 Delta JSON 或纯文本创建 Document
-/// flutter_quill 要求 Document 最后一个节点必须以 \n 结尾
+/// flutter_quill 要求 Document 最后一个节点必须以 \\n 结尾
 Document _documentFromContent(String content) {
   if (!_isDeltaContent(content)) {
-    final plain = content.isEmpty ? '\n' : (content.endsWith('\n') ? content : content + '\n');
+    final plain = content.isEmpty
+        ? '\n'
+        : (content.endsWith('\n') ? content : content + '\n');
     return Document.fromJson([{'insert': plain}]);
   }
   try {
@@ -44,7 +50,7 @@ Document _documentFromContent(String content) {
   }
 }
 
-/// 确保 Delta 最后一个 insert 以 \n 结尾（满足 flutter_quill 要求）
+/// 确保 Delta 最后一个 insert 以 \\n 结尾（满足 flutter_quill 要求）
 List<Map<String, dynamic>> _normalizeDeltaForQuill(List<dynamic> ops) {
   if (ops.isEmpty) return [{'insert': '\n'}];
   final list = ops.map((e) => Map<String, dynamic>.from(e as Map)).toList();
@@ -60,7 +66,7 @@ List<Map<String, dynamic>> _normalizeDeltaForQuill(List<dynamic> ops) {
   return list;
 }
 
-class ArticleDetailScreen extends StatefulWidget {
+class ArticleDetailScreen extends ConsumerStatefulWidget {
   const ArticleDetailScreen({
     super.key,
     required this.post,
@@ -68,6 +74,7 @@ class ArticleDetailScreen extends StatefulWidget {
     this.page,
     this.hasNext,
     this.totalCount,
+    this.forceLoad = false,
   });
 
   final BlogPost post;
@@ -79,13 +86,14 @@ class ArticleDetailScreen extends StatefulWidget {
   final bool? hasNext;
   /// 总文章数（用于计算是否有上一页）
   final int? totalCount;
+  /// 深链或缺少 extra 时强制从仓库加载
+  final bool forceLoad;
 
   @override
-  State<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
+  ConsumerState<ArticleDetailScreen> createState() => _ArticleDetailScreenState();
 }
 
-class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
-  late Future<Map<String, dynamic>> _dataFuture;
+class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   List<BlogPost>? _postsForNav;
   int? _page;
   bool? _hasNext;
@@ -93,7 +101,6 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   bool _loadingPrevNext = false;
   static const int _commentsPerPage = 10;
   int _commentsDisplayCount = _commentsPerPage;
-  final List<Comment> _localComments = [];
 
   @override
   void initState() {
@@ -108,58 +115,55 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         if (mounted) setState(() => _postsForNav = posts);
       });
     }
-    _dataFuture = Future.wait([
-      BlogRepository.instance.getProfile(),
-      BlogRepository.instance.getComments(widget.post.id),
-    ]).then((results) => <String, dynamic>{
-          'profile': results[0],
-          'comments': results[1],
-        });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(articleDetailControllerProvider.notifier).load(
+        postId: widget.post.id,
+        initial: widget.forceLoad ? null : widget.post,
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: FavoriteService.instance,
-      builder: (context, _) => Scaffold(
+    final detailAsync = ref.watch(articleDetailControllerProvider);
+
+    return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('加载失败: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => context.pop(),
-                    child: const Text('返回'),
-                  ),
-                ],
+      body: detailAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('加载失败: $error'),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => context.pop(),
+                child: const Text('返回'),
               ),
-            );
-          }
-          final data = snapshot.data ?? {};
-          final profile = data['profile'] as Map<String, dynamic>? ?? {};
-          final comments = data['comments'] as List<Comment>? ?? [];
+            ],
+          ),
+        ),
+        data: (detail) {
+          final post = detail.post;
+          final profile = detail.profile;
+          final comments = detail.comments;
+          final isFavorite = detail.isFavorite;
 
           return CustomScrollView(
             slivers: [
-              _buildAppBar(context),
-              SliverToBoxAdapter(child: _buildHeroImage(context)),
-              SliverToBoxAdapter(child: _buildAuthorInfo(context, profile)),
-              SliverToBoxAdapter(child: _buildArticleContent(context)),
-              SliverToBoxAdapter(child: _buildTags(context)),
-              SliverToBoxAdapter(child: _buildPrevNext(context)),
+              _buildAppBar(context, post: post, isFavorite: isFavorite),
+              SliverToBoxAdapter(child: _buildHeroImage(context, post)),
+              SliverToBoxAdapter(child: _buildAuthorInfo(context, profile, post)),
+              SliverToBoxAdapter(child: _buildArticleContent(context, post)),
+              SliverToBoxAdapter(child: _buildTags(context, post)),
+              SliverToBoxAdapter(child: _buildPrevNext(context, post)),
               SliverToBoxAdapter(
                 child: _buildComments(
                   context,
-                  [...comments, ..._localComments],
+                  post,
+                  comments,
                   profile,
                 ),
               ),
@@ -168,12 +172,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           );
         },
       ),
-    ),
     );
   }
 
-  void _showShareModal(BuildContext context) {
-    final link = '${Uri.base}#/article/${widget.post.id}';
+  void _showShareModal(BuildContext context, BlogPost post) {
+    final link = '${Uri.base}#/article/${post.id}';
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -216,8 +219,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                     onPressed: () async {
                       try {
                         await Share.share(
-                          '${widget.post.title}\n$link',
-                          subject: widget.post.title,
+                          '${post.title}\n$link',
+                          subject: post.title,
                         );
                       } catch (_) {
                         await Clipboard.setData(ClipboardData(text: link));
@@ -260,7 +263,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar(
+    BuildContext context, {
+    required BlogPost post,
+    required bool isFavorite,
+  }) {
     return OwAppBar(
       title: '文章详情',
       showBackButton: true,
@@ -268,35 +275,39 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.share_rounded),
-          onPressed: () => _showShareModal(context),
+          onPressed: () => _showShareModal(context, post),
           color: Colors.grey[800],
         ),
         IconButton(
           icon: Icon(
-            FavoriteService.instance.isFavorite(widget.post.id)
-                ? Icons.bookmark_rounded
-                : Icons.bookmark_border_rounded,
+            isFavorite ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
           ),
           onPressed: () async {
-            await FavoriteService.instance.toggle(widget.post.id);
+            if (!PermissionService.canFavorite()) {
+              showTopError(context, '请先登录');
+              if (context.mounted) {
+                context.push('/login');
+              }
+              return;
+            }
+            await ref.read(articleDetailControllerProvider.notifier).toggleFavorite();
             if (mounted) {
               showTopMessage(
                 context,
-                FavoriteService.instance.isFavorite(widget.post.id)
-                    ? '已收藏'
-                    : '已取消收藏',
+                isFavorite ? '已取消收藏' : '已收藏',
               );
             }
           },
-          color: Colors.grey[800],
+          color: isFavorite
+              ? AppColors.primary
+              : Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ],
     );
   }
 
-  Widget _buildHeroImage(BuildContext context) {
-    final post = widget.post;
-    return Padding(
+  Widget _buildHeroImage(BuildContext context, BlogPost post) {
+return Padding(
       padding: const EdgeInsets.all(16),
       child: Stack(
         children: [
@@ -378,12 +389,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   }
 
   Widget _buildAuthorInfo(
-    BuildContext context,
-    Map<String, dynamic> profile,
-  ) {
+BuildContext context,
+Map<String, dynamic> profile,
+BlogPost post,
+) {
     final colorScheme = Theme.of(context).colorScheme;
-    final post = widget.post;
-    final avatarUrl = profile['avatarUrl'] as String? ?? '';
+final avatarUrl = profile['avatarUrl'] as String? ?? '';
     final name = profile['name'] as String? ?? appName;
 
     return Padding(
@@ -422,29 +433,60 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Text(
-              '关注',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
-            ),
+          ListenableBuilder(
+            listenable: FollowService.instance,
+            builder: (context, _) {
+              final profileId = profile['id']?.toString().trim();
+              final authorId = (profileId != null && profileId.isNotEmpty)
+                  ? profileId
+                  : (post.authorId.isNotEmpty ? post.authorId : '1');
+              final isFollowing =
+                  FollowService.instance.isFollowing(authorId);
+              return GestureDetector(
+                onTap: () async {
+                  if (!PermissionService.canComment()) {
+                    showTopError(context, '请先登录');
+                    if (context.mounted) {
+                      context.push('/login');
+                    }
+                    return;
+                  }
+                  await FollowService.instance.toggle(authorId);
+                  if (context.mounted) {
+                    showTopMessage(
+                      context,
+                      isFollowing ? '已取消关注' : '已关注',
+                    );
+                  }
+                },
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isFollowing
+                        ? AppColors.primary
+                        : AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Text(
+                    isFollowing ? '已关注' : '关注',
+                    style: TextStyle(
+                      color: isFollowing ? Colors.white : AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildArticleContent(BuildContext context) {
+  Widget _buildArticleContent(BuildContext context, BlogPost post) {
     final colorScheme = Theme.of(context).colorScheme;
-    final post = widget.post;
     if (_isDeltaContent(post.content)) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -514,9 +556,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     );
   }
 
-  Widget _buildTags(BuildContext context) {
+  Widget _buildTags(BuildContext context, BlogPost post) {
     final colorScheme = Theme.of(context).colorScheme;
-    final post = widget.post;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Wrap(
@@ -594,10 +635,10 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
   }
 
-  Widget _buildPrevNext(BuildContext context) {
+  Widget _buildPrevNext(BuildContext context, BlogPost post) {
     final colorScheme = Theme.of(context).colorScheme;
     final posts = _postsForNav ?? [];
-    final idx = posts.indexWhere((p) => p.id == widget.post.id);
+    final idx = posts.indexWhere((p) => p.id == post.id);
     final prevPost = idx > 0 ? posts[idx - 1] : null;
     final nextPost = idx >= 0 && idx < posts.length - 1 ? posts[idx + 1] : null;
     final canFetchPrev = idx == 0 && _page != null && _page! > 1;
@@ -833,6 +874,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void _showCommentModal(
     BuildContext context,
     Map<String, dynamic> profile,
+    BlogPost post,
   ) {
     final controller = TextEditingController();
     showModalBottomSheet(
@@ -882,7 +924,12 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                         final content = controller.text.trim();
                         ctx.pop();
                         if (content.isNotEmpty) {
-                          final name = profile['name'] as String? ?? '我';
+                          final authUser = ref.read(authControllerProvider).user;
+                          final name = (authUser?['nickname'] ??
+                                  authUser?['name'] ??
+                                  profile['name'] ??
+                                  '我')
+                              .toString();
                           final newComment = Comment(
                             id: 'local_${DateTime.now().millisecondsSinceEpoch}',
                             authorName: name,
@@ -891,8 +938,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                             timeAgo: '刚刚',
                             likeCount: 0,
                           );
-                          BlogRepository.instance.addLocalComment(widget.post.id, newComment);
-                          setState(() => _localComments.add(newComment));
+                          ref.read(articleDetailControllerProvider.notifier).addComment(newComment);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('评论已发布')),
                           );
@@ -912,6 +958,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
 
   Widget _buildComments(
     BuildContext context,
+    BlogPost post,
     List<Comment> comments,
     Map<String, dynamic> profile,
   ) {
@@ -942,7 +989,16 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 ),
               ),
               TextButton.icon(
-                onPressed: () => _showCommentModal(context, profile),
+                onPressed: () {
+                  if (!PermissionService.canComment()) {
+                    showTopError(context, '请先登录');
+                    if (context.mounted) {
+                      context.push('/login');
+                    }
+                    return;
+                  }
+                  _showCommentModal(context, profile, post);
+                },
                 icon: Icon(
                   Icons.edit_rounded,
                   size: 16,
@@ -1132,3 +1188,27 @@ class _RichArticleContentState extends State<_RichArticleContent> {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

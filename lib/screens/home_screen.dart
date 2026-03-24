@@ -1,10 +1,11 @@
 /// 首页 - 博客列表
 ///
-/// 数据通过 mock API 请求获取
+/// 数据通过仓库请求获取（Riverpod）
 library;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/app-bar.dart';
 import '../components/error_view.dart';
@@ -12,44 +13,27 @@ import '../components/loading_view.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
 import '../core/app_typography.dart';
-import '../repositories/blog_repository.dart';
+import '../controllers/app_controllers.dart';
+import '../controllers/home_controller.dart';
+import '../controllers/providers.dart';
 import '../models/blog_post.dart';
-import 'about_screen.dart';
-import 'setting_screen.dart';
 import '../routes/app_router.dart';
-import 'article_detail_screen.dart';
-import 'search_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  late Future<Map<String, dynamic>> _dataFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _dataFuture = BlogRepository.instance.getHomeData(page: 1);
-  }
-
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _refresh() async {
-    final f = BlogRepository.instance.getHomeData(page: 1);
-    setState(() {
-      _dataFuture = f;
-    });
-    await f;
+    await ref.read(homeControllerProvider.notifier).refresh();
   }
 
   void _goToPage(int page) {
     if (page < 1) return;
-    final f = BlogRepository.instance.getHomeData(page: page);
-    setState(() {
-      _dataFuture = f;
-    });
+    ref.read(homeControllerProvider.notifier).goToPage(page);
   }
 
   Widget _buildPagination(
@@ -95,41 +79,64 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final homeAsync = ref.watch(homeControllerProvider);
+    final auth = ref.watch(authControllerProvider);
+    final profileAsync = ref.watch(currentUserProfileProvider);
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LoadingView();
+      body: homeAsync.when(
+        loading: () => const LoadingView(),
+        error: (error, _) => ErrorView(
+          message: '加载失败: $error',
+          onRetry: () => ref.read(homeControllerProvider.notifier).refresh(),
+        ),
+        data: (data) {
+          final user = data.user;
+          final posts = data.posts;
+          final categories = data.categories;
+          final page = data.page;
+          final totalCount = data.totalCount;
+          final hasNext = data.hasNext;
+
+          final isGuest = !auth.isLoggedIn;
+          final authUser = auth.user ?? const <String, dynamic>{};
+          final profile = profileAsync.valueOrNull ?? const <String, dynamic>{};
+
+          String pickFirst(List<dynamic> values, {String fallback = ''}) {
+            for (final v in values) {
+              final s = v?.toString() ?? '';
+              if (s.isNotEmpty) return s;
+            }
+            return fallback;
           }
-          if (snapshot.hasError) {
-            return ErrorView(
-              message: '加载失败: ${snapshot.error}',
-              onRetry: () {
-                setState(
-                  () => _dataFuture = BlogRepository.instance.getHomeData(
-                    page: 1,
-                  ),
-                );
-              },
-            );
-          }
-          final data = snapshot.data ?? {};
-          final user = data['user'] as Map<String, dynamic>? ?? {};
-          final posts = data['posts'] as List<BlogPost>? ?? [];
-          final categories = data['categories'] as List<String>? ?? [];
-          final page = data['page'] as int? ?? 1;
-          final totalCount = data['totalCount'] as int? ?? 0;
-          final hasNext = data['hasNext'] as bool? ?? false;
+
+          final heroUser = {
+            'avatarUrl': pickFirst(
+              [profile['avatarUrl'], authUser['avatarUrl'], user['avatarUrl']],
+            ),
+            'nickname': pickFirst(
+              [profile['name'], authUser['nickname'], user['nickname']],
+              fallback: appName,
+            ),
+            'subtitle': pickFirst(
+              [profile['subtitle'], authUser['subtitle'], user['subtitle']],
+            ),
+          };
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
-                _buildHeader(context),
-                SliverToBoxAdapter(child: _buildHero(context, user)),
+                _buildHeader(context, isLoggedIn: auth.isLoggedIn),
+                SliverToBoxAdapter(
+                  child: _buildHero(
+                    context,
+                    heroUser,
+                    isGuest: isGuest,
+                  ),
+                ),
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverToBoxAdapter(
@@ -160,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, {required bool isLoggedIn}) {
     final colorScheme = Theme.of(context).colorScheme;
     return OwAppBar(
       title: appName,
@@ -170,10 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: () async {
           await context.push('/settings');
           if (mounted) {
-            final newFuture = BlogRepository.instance.getHomeData();
-            setState(() {
-              _dataFuture = newFuture;
-            });
+            ref.read(homeControllerProvider.notifier).refresh();
           }
         },
         color: colorScheme.onSurface,
@@ -187,14 +191,24 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.person_outline_rounded),
-          onPressed: () => context.push('/about'),
+          onPressed: () {
+            if (isLoggedIn) {
+              context.push('/about');
+            } else {
+              context.push('/login');
+            }
+          },
           color: colorScheme.onSurface,
         ),
       ],
     );
   }
 
-  Widget _buildHero(BuildContext context, Map<String, dynamic> user) {
+  Widget _buildHero(
+    BuildContext context,
+    Map<String, dynamic> user, {
+    required bool isGuest,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final avatarUrl = user['avatarUrl'] as String? ?? '';
     final name = user['nickname'] as String? ?? appName;
@@ -204,49 +218,61 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Column(
         children: [
-          Container(
-            width: 96,
-            height: 96,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.primary, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Image.network(
-                avatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                  child: const Icon(Icons.person, size: 48),
+          if (!isGuest) ...[
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.primary, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipOval(
+                child: Image.network(
+                  avatarUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                    child: const Icon(Icons.person, size: 48),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            name,
-            style: AppTypography.displayMedium(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
+            const SizedBox(height: 16),
+            Text(
+              name,
+              style: AppTypography.displayMedium(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: AppTypography.titleLargeItalic(
-              fontSize: 18,
-              color: colorScheme.onSurfaceVariant,
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: AppTypography.titleLargeItalic(
+                fontSize: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
+          ] else ...[
+            Text(
+              appName,
+              style: AppTypography.displayMedium(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
           GestureDetector(
             onTap: () => context.push('/search'),
             child: Container(

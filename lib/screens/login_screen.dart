@@ -10,9 +10,9 @@ import '../components/primary_button.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
 import '../data/mock_api_data.dart';
+import '../repositories/blog_repository.dart';
 import '../services/auth_service.dart';
 import '../utils/toast_util.dart';
-import 'main_shell.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -48,10 +48,28 @@ class _LoginScreenState extends State<LoginScreen> {
     if (res['code'] == 200) {
       final user = res['data'] as Map<String, dynamic>?;
       if (user != null) {
-        await AuthService.instance.saveLogin(user, persist: _rememberMe);
+        final userId = user['id']?.toString();
+        if (userId != null && userId.isNotEmpty) {
+          final profile =
+              await BlogRepository.instance.getProfile(userId: userId);
+          final merged = {
+            ...user,
+            if (profile['name'] != null) 'nickname': profile['name'],
+            if (profile['avatarUrl'] != null) 'avatarUrl': profile['avatarUrl'],
+            if (profile['subtitle'] != null) 'subtitle': profile['subtitle'],
+          };
+          await AuthService.instance.saveLogin(merged, persist: _rememberMe);
+        } else {
+          await AuthService.instance.saveLogin(user, persist: _rememberMe);
+        }
       }
       if (!mounted) return;
-      context.go('/');
+      final from = GoRouterState.of(context).uri.queryParameters['from'];
+      if (from != null && from.isNotEmpty) {
+        context.go(from);
+      } else {
+        context.go('/');
+      }
     } else {
       showTopError(context, res['msg'] as String? ?? '登录失败');
     }
@@ -65,6 +83,13 @@ class _LoginScreenState extends State<LoginScreen> {
         child: AuthFormLayout(
           title: appName,
           subtitle: '执笔墨色，共绘山河',
+          trailing: TextButton(
+            onPressed: () => context.go('/'),
+            child: Text(
+              '暂时跳过',
+              style: TextStyle(color: AppColors.primary),
+            ),
+          ),
           child: Form(
             key: _formKey,
             child: Column(

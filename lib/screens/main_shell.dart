@@ -2,12 +2,14 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import 'about_screen.dart';
 import '../constants/color.dart';
 import 'category_screen.dart';
 import 'home_screen.dart';
 import 'search_screen.dart';
+import '../services/auth_service.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -70,7 +72,13 @@ class _MainShellState extends State<MainShell> {
                   icon: Icons.person_rounded,
                   label: '关于',
                   isSelected: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
+                  onTap: () {
+                    if (AuthService.instance.isLoggedIn) {
+                      setState(() => _currentIndex = 3);
+                    } else {
+                      context.push('/login');
+                    }
+                  },
                 ),
               ],
             ),
@@ -121,4 +129,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-

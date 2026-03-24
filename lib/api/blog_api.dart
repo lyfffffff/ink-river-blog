@@ -50,6 +50,7 @@ class BlogApi {
   /// 标准格式: id, title, excerpt, category, date, imageUrl, content, readMinutes, tags
   static BlogPost _fromStandard(Map<String, dynamic> m) => BlogPost(
         id: m['id']?.toString() ?? '',
+        authorId: m['authorId']?.toString() ?? 'u_1',
         title: m['title'] as String? ?? '',
         excerpt: m['excerpt'] as String? ?? '',
         category: m['category'] as String? ?? '未分类',
@@ -73,6 +74,7 @@ class BlogApi {
     final postTags = tags.take(tagCount).toList();
     return BlogPost(
       id: m['id']?.toString() ?? '',
+      authorId: m['userId']?.toString() ?? 'u_1',
       title: m['title'] as String? ?? '',
       excerpt: (m['body'] as String? ?? '').length > 80
           ? '${(m['body'] as String).substring(0, 80)}...'
@@ -131,6 +133,7 @@ class BlogApi {
     final company = m['company'] as Map<String, dynamic>?;
     final companyName = company?['name'] as String? ?? '';
     return {
+      'id': m['id']?.toString() ?? '',
       'name': name,
       'subtitle': companyName.isNotEmpty ? companyName : (m['username'] as String? ?? ''),
       'quote': '',

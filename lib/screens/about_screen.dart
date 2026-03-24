@@ -14,6 +14,7 @@ import '../components/settings_button.dart';
 import '../components/error_view.dart';
 import '../components/loading_view.dart';
 import '../repositories/blog_repository.dart';
+import '../services/auth_service.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key, this.showBackButton = true});
@@ -30,7 +31,12 @@ class _AboutScreenState extends State<AboutScreen> {
   @override
   void initState() {
     super.initState();
-    _profileFuture = BlogRepository.instance.getProfile();
+    _loadProfile();
+  }
+
+  void _loadProfile() {
+    final userId = AuthService.instance.user?['id']?.toString();
+    _profileFuture = BlogRepository.instance.getProfile(userId: userId);
   }
 
   @override
@@ -46,8 +52,7 @@ class _AboutScreenState extends State<AboutScreen> {
           if (snapshot.hasError) {
             return ErrorView(
               message: '加载失败: ${snapshot.error}',
-              onRetry: () =>
-                  setState(() => _profileFuture = BlogRepository.instance.getProfile()),
+              onRetry: () => setState(_loadProfile),
             );
           }
           final profile = snapshot.data ?? {};

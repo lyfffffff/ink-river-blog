@@ -17,6 +17,7 @@ import '../services/blog_service.dart';
 import '../routes/app_router.dart';
 import 'article_detail_screen.dart';
 import 'article_edit_screen.dart';
+import '../services/permission_service.dart';
 
 class ArticleManagementScreen extends StatefulWidget {
   const ArticleManagementScreen({super.key});
@@ -112,6 +113,10 @@ class _ArticleManagementScreenState extends State<ArticleManagementScreen> {
                     );
                   }
                   final posts = snapshot.data ?? [];
+                  final userId = PermissionService.currentUserId();
+                  final visiblePosts = userId == null
+                      ? <BlogPost>[]
+                      : posts.where((p) => p.authorId == userId).toList();
                   return ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
@@ -124,17 +129,17 @@ class _ArticleManagementScreenState extends State<ArticleManagementScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      ...posts.map((post) => ArticleCard(
+                      ...visiblePosts.map((post) => ArticleCard(
                             post: post,
                             onManage: () => _showActionSheet(post),
                             onTap: () => context.push(
                                   '/article/${post.id}',
                                   extra: ArticleDetailArgs(
                                     post: post,
-                                    allPosts: posts,
+                                    allPosts: visiblePosts,
                                     page: 1,
                                     hasNext: false,
-                                    totalCount: posts.length,
+                                    totalCount: visiblePosts.length,
                                   ),
                                 ),
                             metadataFormat:

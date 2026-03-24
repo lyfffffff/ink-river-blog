@@ -318,17 +318,18 @@ class _SettingScreenState extends State<SettingScreen> {
           SliverToBoxAdapter(
             child: Column(
               children: [
-                SettingsSection(
-                  title: '账号安全',
-                  children: [
-                    SettingsItem(title: '账号 ID', value: '12345678'),
-                    SettingsItem(
-                      title: '修改密码',
-                      showDivider: false,
-                      onTap: () => _showChangePasswordDialog(context),
-                    ),
-                  ],
-                ),
+                if (AuthService.instance.isLoggedIn)
+                  SettingsSection(
+                    title: '账号安全',
+                    children: [
+                      SettingsItem(title: '账号 ID', value: '12345678'),
+                      SettingsItem(
+                        title: '修改密码',
+                        showDivider: false,
+                        onTap: () => _showChangePasswordDialog(context),
+                      ),
+                    ],
+                  ),
                 SettingsSection(
                   title: '通知设置',
                   children: [
@@ -371,23 +372,25 @@ class _SettingScreenState extends State<SettingScreen> {
                     ),
                   ],
                 ),
-                SettingsSection(
-                  title: '内容管理',
-                  children: [
-                    SettingsItem(
-                      title: '管理文章',
-                      onTap: () {
-                        if (AuthService.instance.isLoggedIn) {
-                          context.push('/article-management');
-                        } else {
-                          showTopError(context, '请先登录');
-                          context.push('/login');
-                        }
-                      },
-                      showDivider: false,
-                    ),
-                  ],
-                ),
+                if (AuthService.instance.isLoggedIn)
+                  SettingsSection(
+                    title: '内容管理',
+                    children: [
+                      SettingsItem(
+                        title: '我的收藏',
+                        onTap: () => context.push('/favorites'),
+                      ),
+                      SettingsItem(
+                        title: '我的关注',
+                        onTap: () => context.push('/follows'),
+                      ),
+                      SettingsItem(
+                        title: '管理文章',
+                        onTap: () => context.push('/article-management'),
+                        showDivider: false,
+                      ),
+                    ],
+                  ),
                 SettingsSection(
                   title: '关于',
                   children: [

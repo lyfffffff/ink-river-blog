@@ -16,6 +16,8 @@ import '../screens/privacy_policy_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/setting_screen.dart';
+import '../screens/favorites_screen.dart';
+import '../screens/follows_screen.dart';
 import '../services/auth_service.dart';
 import '../models/blog_post.dart';
 
@@ -33,6 +35,8 @@ class AppRoutes {
   static const String articleManagement = '/article-management';
   static const String privacy = '/privacy';
   static const String search = '/search';
+  static const String favorites = '/favorites';
+  static const String follows = '/follows';
 
   static String articlePath(String id) => '/article/$id';
   static String articleEditPath(String id) => '/article/$id/edit';
@@ -59,13 +63,25 @@ late final GoRouter appRouter = GoRouter(
   initialLocation: AppRoutes.main,
   redirect: (context, state) {
     final isLoggedIn = AuthService.instance.isLoggedIn;
-    final isLoggingIn = state.matchedLocation == AppRoutes.login ||
-        state.matchedLocation == AppRoutes.register;
+    final location = state.matchedLocation;
+    final isLoggingIn =
+        location == AppRoutes.login || location == AppRoutes.register;
+    final isProtected = location == AppRoutes.about ||
+        location == AppRoutes.favorites ||
+        location == AppRoutes.follows ||
+        location == AppRoutes.articleManagement ||
+        location == AppRoutes.articleEdit ||
+        (state.uri.path.startsWith('/article/') &&
+            state.uri.path.endsWith('/edit'));
 
-    if (!isLoggedIn && !isLoggingIn && state.matchedLocation == AppRoutes.main) {
-      return AppRoutes.login;
+    if (!isLoggedIn && isProtected) {
+      final from = Uri.encodeComponent(state.uri.toString());
+      return '${AppRoutes.login}?from=$from';
     }
+
     if (isLoggedIn && isLoggingIn) {
+      final from = state.uri.queryParameters['from'];
+      if (from != null && from.isNotEmpty) return from;
       return AppRoutes.main;
     }
     return null;
@@ -98,8 +114,26 @@ late final GoRouter appRouter = GoRouter(
       builder: (context, state) {
         final args = state.extra as ArticleDetailArgs?;
         if (args == null) {
-          return const Scaffold(
-            body: Center(child: Text('参数错误')),
+          final id = state.pathParameters['id'] ?? '';
+          if (id.isEmpty) {
+            return const Scaffold(
+              body: Center(child: Text('参数错误')),
+            );
+          }
+          final placeholder = BlogPost(
+            id: id,
+            title: '',
+            excerpt: '',
+            category: '未分类',
+            date: '',
+            imageUrl: '',
+            content: '',
+            readMinutes: 0,
+            tags: const [],
+          );
+          return ArticleDetailScreen(
+            post: placeholder,
+            forceLoad: true,
           );
         }
         return ArticleDetailScreen(
@@ -129,6 +163,14 @@ late final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.search,
       builder: (context, state) => const SearchScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.favorites,
+      builder: (context, state) => const FavoritesScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.follows,
+      builder: (context, state) => const FollowsScreen(),
     ),
   ],
 );

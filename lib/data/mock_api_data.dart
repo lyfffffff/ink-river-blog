@@ -134,6 +134,7 @@ Future<Map<String, dynamic>> getDataById(String id) async {
 
 Map<String, dynamic> _postToMap(BlogPost post) => {
   'id': post.id,
+  'authorId': post.authorId,
   'title': post.title,
   'excerpt': post.excerpt,
   'category': post.category,
@@ -181,7 +182,7 @@ Future<Map<String, dynamic>> login({
 }) async {
   if (username == 'admin' && password == _getEffectivePassword()) {
     final user = {
-      'id': 'u_1',
+      'id': '1',
       'username': username,
       'nickname': userInfo['name'],
       'avatarUrl': userInfo['avatarUrl'],
@@ -306,6 +307,7 @@ Future<Map<String, dynamic>> changePassword({
 
 BlogPost _postFromMap(Map<String, dynamic> m) => BlogPost(
   id: m['id'] as String,
+  authorId: m['authorId']?.toString() ?? 'u_1',
   title: m['title'] as String,
   excerpt: m['excerpt'] as String,
   category: m['category'] as String,
