@@ -148,8 +148,11 @@ class _SettingScreenState extends State<SettingScreen> {
                                 if (!(formKey.currentState?.validate() ?? false)) {
                                   return;
                                 }
+                                final userId =
+                                    AuthService.instance.user?['id']?.toString() ??
+                                        '';
                                 final res = await changePassword(
-                                  userId: 'u_1',
+                                  userId: userId,
                                   oldPassword: oldCtrl.text,
                                   newPassword: newCtrl.text,
                                   newPassword2: confirmCtrl.text,
@@ -322,7 +325,16 @@ class _SettingScreenState extends State<SettingScreen> {
                   SettingsSection(
                     title: '账号安全',
                     children: [
-                      SettingsItem(title: '账号 ID', value: '12345678'),
+                      Builder(builder: (context) {
+                        final user = AuthService.instance.user ?? {};
+                        final username = user['username']?.toString() ?? '';
+                        final nickname = user['nickname']?.toString() ?? '';
+                        final value = username.isNotEmpty ? username : nickname;
+                        return SettingsItem(
+                          title: '账号',
+                          value: value.isNotEmpty ? value : '-',
+                        );
+                      }),
                       SettingsItem(
                         title: '修改密码',
                         showDivider: false,

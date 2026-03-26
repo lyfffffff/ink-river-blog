@@ -26,19 +26,23 @@ class BlogRepository {
 
   /// 首页数据（分页）
   Future<Map<String, dynamic>> getHomeData({int page = 1}) async {
-    final localPosts = await _local.getPosts();
-    if (localPosts.isNotEmpty) {
+    var localPosts = await _local.getPosts();
+    final requiredCount = page * _pageSize;
+    if (localPosts.isNotEmpty && localPosts.length >= requiredCount) {
       refreshPosts();
-      return _buildHomeData(localPosts, page: page);
+      final merged = await _applyLocalChanges(localPosts);
+      return _buildHomeData(merged, page: page);
     }
 
     try {
-      final remote = await _remote.fetchPostsPage(page, _pageSize);
+      final remote = await _remote.fetchPostsPage(1, 100);
+      await _cachePosts(remote);
       final merged = await _applyLocalChanges(remote);
-      await _cachePosts(merged);
-      return _buildHomeData(merged, page: page);
+      localPosts = merged;
+      return _buildHomeData(localPosts, page: page);
     } catch (_) {
-      return _buildHomeData(const <BlogPost>[], page: page);
+      final merged = await _applyLocalChanges(localPosts);
+      return _buildHomeData(merged, page: page);
     }
   }
 
@@ -47,16 +51,14 @@ class BlogRepository {
     final localPosts = await _local.getPosts();
     if (localPosts.isNotEmpty) return;
     final remote = await _remote.fetchPostsPage(1, 100);
-    final merged = await _applyLocalChanges(remote);
-    await _cachePosts(merged);
+    await _cachePosts(remote);
   }
 
   /// 刷新缓存
   Future<void> refreshPosts() async {
     try {
       final remote = await _remote.fetchPostsPage(1, 100);
-      final merged = await _applyLocalChanges(remote);
-      await _cachePosts(merged);
+      await _cachePosts(remote);
     } catch (_) {}
   }
 
@@ -65,15 +67,15 @@ class BlogRepository {
     final localPosts = await _local.getPosts();
     if (localPosts.isNotEmpty) {
       refreshPosts();
-      return localPosts;
+      return _applyLocalChanges(localPosts);
     }
     try {
       final remote = await _remote.fetchPostsPage(1, 100);
+      await _cachePosts(remote);
       final merged = await _applyLocalChanges(remote);
-      await _cachePosts(merged);
       return merged;
     } catch (_) {
-      return [];
+      return _applyLocalChanges(const <BlogPost>[]);
     }
   }
 
@@ -237,19 +239,59 @@ class BlogRepository {
     if (changes.isEmpty) return remote;
 
     final map = {for (final p in remote) p.id: p};
+    final createdIds = <String>{};
+    final createdOrder = <String>[];
     for (final change in changes) {
       if (change.entityType != 'post') continue;
       if (change.changeType == 'delete') {
         map.remove(change.entityId);
+        createdIds.remove(change.entityId);
         continue;
       }
       if (change.changeType == 'update' || change.changeType == 'create') {
         final decoded = jsonDecode(change.payloadJson) as Map<String, dynamic>;
         final post = _postFromJsonMap(decoded);
         map[post.id] = post;
+        if (change.changeType == 'create') {
+          createdIds.add(post.id);
+          createdOrder.add(post.id);
+        }
       }
     }
-    return map.values.toList();
+
+    if (createdIds.isEmpty) {
+      return map.values.toList();
+    }
+
+    // New posts first (descending by createdAt)
+    final orderedCreates = changes
+        .where((c) => c.entityType == 'post' && c.changeType == 'create')
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final createdList = <BlogPost>[];
+    for (final change in orderedCreates) {
+      final post = map[change.entityId];
+      if (post != null) createdList.add(post);
+    }
+
+    // Preserve remote order for the rest
+    final rest = <BlogPost>[];
+    final seen = <String>{...createdIds};
+    for (final p in remote) {
+      final item = map[p.id];
+      if (item == null || seen.contains(item.id)) continue;
+      rest.add(item);
+      seen.add(item.id);
+    }
+
+    // Any remaining (e.g. updated local-only)
+    for (final item in map.values) {
+      if (seen.contains(item.id)) continue;
+      rest.add(item);
+      seen.add(item.id);
+    }
+
+    return [...createdList, ...rest];
   }
 }
 

@@ -23,6 +23,35 @@ class BlogService {
     return _postFromMap(res['data'] as Map<String, dynamic>);
   }
 
+  /// /create 创建文章（本地）
+  static Future<String?> createArticle(Map<String, dynamic> article) async {
+    if (!PermissionService.canFavorite()) return null;
+    final userId = PermissionService.currentUserId();
+    if (userId == null || userId.isEmpty) return null;
+    final newId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    final payload = {
+      'id': newId,
+      'authorId': userId,
+      'title': article['title'] ?? '',
+      'excerpt': article['excerpt'] ?? '',
+      'category': article['category'] ?? '未分类',
+      'date': article['date'] ?? DateTime.now().year.toString(),
+      'imageUrl': article['imageUrl'] ?? 'https://via.placeholder.com/400x225',
+      'content': article['content'] ?? '',
+      'readMinutes': article['readMinutes'] ?? 5,
+      'tags': article['tags'] ?? <String>[],
+    };
+    final post = _postFromMap(payload);
+    await LocalDataSource.instance.upsertPost(post);
+    await _recordChange(
+      entityType: 'post',
+      entityId: newId,
+      changeType: 'create',
+      payload: payload,
+    );
+    return newId;
+  }
+
   /// /save 保存文章
   /// 参数：文章 id、文章详情
   static Future<bool> saveArticle(String id, Map<String, dynamic> article) async {
@@ -31,7 +60,12 @@ class BlogService {
     final res = await api.saveArticle(id, article);
     final ok = res['code'] == 200;
     if (ok) {
-      final payload = {'id': id, ...article};
+      final authorId = PermissionService.currentUserId();
+      final payload = {
+        'id': id,
+        ...article,
+        if (authorId != null && authorId.isNotEmpty) 'authorId': authorId,
+      };
       await _recordChange(
         entityType: 'post',
         entityId: id,
@@ -66,7 +100,10 @@ class BlogService {
     required String changeType,
     required Map<String, dynamic> payload,
   }) async {
+    final userId = PermissionService.currentUserId();
+    if (userId == null || userId.isEmpty) return;
     final change = LocalChange(
+      userId: userId,
       entityType: entityType,
       entityId: entityId,
       changeType: changeType,

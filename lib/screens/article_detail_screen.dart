@@ -95,6 +95,9 @@ class ArticleDetailScreen extends ConsumerStatefulWidget {
 
 class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
   List<BlogPost>? _postsForNav;
+  List<BlogPost>? _prevPagePosts;
+  List<BlogPost>? _nextPagePosts;
+  bool? _nextPageHasNext;
   int? _page;
   bool? _hasNext;
   int? _totalCount;
@@ -110,6 +113,7 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
       _page = widget.page;
       _hasNext = widget.hasNext;
       _totalCount = widget.totalCount;
+      _prefetchAdjacentPages();
     } else {
       BlogRepository.instance.getPosts().then((posts) {
         if (mounted) setState(() => _postsForNav = posts);
@@ -122,6 +126,42 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
         initial: widget.forceLoad ? null : widget.post,
       );
     });
+  }
+
+  BlogPost? _edgeFrom(List<BlogPost>? list, {required bool last}) {
+    if (list == null || list.isEmpty) return null;
+    return last ? list.last : list.first;
+  }
+
+  Future<void> _prefetchAdjacentPages() async {
+    await Future.wait([
+      _prefetchPrevPage(),
+      _prefetchNextPage(),
+    ]);
+  }
+
+  Future<void> _prefetchPrevPage() async {
+    if (_page == null || _page! <= 1 || _prevPagePosts != null) return;
+    try {
+      final data = await BlogRepository.instance.getHomeData(page: _page! - 1);
+      final list = BlogRepository.instance.parsePostsFromHomeData(data);
+      if (!mounted) return;
+      setState(() => _prevPagePosts = list);
+    } catch (_) {}
+  }
+
+  Future<void> _prefetchNextPage() async {
+    if (_page == null || _hasNext != true || _nextPagePosts != null) return;
+    try {
+      final data = await BlogRepository.instance.getHomeData(page: _page! + 1);
+      final list = BlogRepository.instance.parsePostsFromHomeData(data);
+      final nextHasNext = data['hasNext'] as bool? ?? false;
+      if (!mounted) return;
+      setState(() {
+        _nextPagePosts = list;
+        _nextPageHasNext = nextHasNext;
+      });
+    } catch (_) {}
   }
 
   @override
@@ -644,6 +684,8 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
     final canFetchPrev = idx == 0 && _page != null && _page! > 1;
     final canFetchNext =
         idx == posts.length - 1 && idx >= 0 && _hasNext == true;
+    final prevPageEdge = _edgeFrom(_prevPagePosts, last: true);
+    final nextPageEdge = _edgeFrom(_nextPagePosts, last: false);
     final hasPrev = prevPost != null || canFetchPrev;
     final hasNext = nextPost != null || canFetchNext;
 
@@ -673,6 +715,17 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
                                     allPosts: posts,
                                     page: _page,
                                     hasNext: _hasNext,
+                                    totalCount: _totalCount,
+                                  ),
+                                );
+                              } else if (prevPageEdge != null) {
+                                context.pushReplacement(
+                                  '/article/${prevPageEdge.id}',
+                                  extra: ArticleDetailArgs(
+                                    post: prevPageEdge,
+                                    allPosts: _prevPagePosts,
+                                    page: _page != null ? _page! - 1 : null,
+                                    hasNext: true,
                                     totalCount: _totalCount,
                                   ),
                                 );
@@ -714,10 +767,12 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: colorScheme.outline,
-                                    ),
+                                  ),
                                   ),
                                   Text(
-                                    prevPost?.title ?? '加载上一页...',
+                                    prevPost?.title ??
+                                        prevPageEdge?.title ??
+                                        '加载上一页...',
                                     style: AppTypography.displayMedium(
                                       fontWeight: FontWeight.bold,
                                       color: colorScheme.onSurface,
@@ -780,6 +835,17 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
                                     totalCount: _totalCount,
                                   ),
                                 );
+                              } else if (nextPageEdge != null) {
+                                context.pushReplacement(
+                                  '/article/${nextPageEdge.id}',
+                                  extra: ArticleDetailArgs(
+                                    post: nextPageEdge,
+                                    allPosts: _nextPagePosts,
+                                    page: _page != null ? _page! + 1 : null,
+                                    hasNext: _nextPageHasNext,
+                                    totalCount: _totalCount,
+                                  ),
+                                );
                               } else {
                                 _goToNextPage();
                               }
@@ -806,7 +872,9 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
                                     ),
                                   ),
                                   Text(
-                                    nextPost?.title ?? '加载下一页...',
+                                    nextPost?.title ??
+                                        nextPageEdge?.title ??
+                                        '加载下一页...',
                                     style: AppTypography.displayMedium(
                                       fontWeight: FontWeight.bold,
                                       color: colorScheme.onSurface,
@@ -1094,16 +1162,20 @@ class _CommentItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      comment.authorName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: colorScheme.onSurface,
+                    Expanded(
+                      child: Text(
+                        comment.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: colorScheme.onSurface,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 12),
                     Text(
                       comment.timeAgo,
                       style: TextStyle(

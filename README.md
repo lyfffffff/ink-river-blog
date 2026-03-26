@@ -1,6 +1,6 @@
 # 墨色山河 - 个人博客应用
 
-一款基于 Flutter 开发的个人博客应用，使用线上开源 API（https://jsonplaceholder.typicode.com） 作为数据源，提供文章浏览、搜索、分类、编辑、评论等完整功能。
+一款基于 Flutter 开发的个人博客应用，使用线上开源 API（https://jsonplaceholder.typicode.com） 作为数据源，提供文章浏览、搜索、分类、编辑、评论等完整功能，并内置本地优先与多用户演示登录。
 
 ---
 
@@ -15,7 +15,7 @@
 | **搜索** | 关键词搜索（标题、摘要、内容、标签），默认显示第一页数据 |
 | **关于** | 个人简介、技能、时间线展示 |
 | **文章详情** | 富文本/纯文本展示，上一篇/下一篇导航（支持跨页加载） |
-| **评论** | 评论列表分页、写评论弹窗、本地发布（会话内有效） |
+| **评论** | 评论列表分页、写评论弹窗、本地发布（Web 端持久化） |
 | **分享** | 复制文章链接到剪贴板 |
 
 ### 管理功能（需登录）
@@ -30,7 +30,8 @@
 ### 数据与配置
 
 - **数据源**：使用 JSONPlaceholder 线上 API，获取博客、评论、用户数据
-- **本地 Overlay**：编辑保存、删除、发布评论在会话内生效，刷新后恢复线上数据
+- **本地 Overlay**：编辑保存、删除、发布评论在本地覆盖线上数据（Web 端持久化）
+- **用户隔离**：收藏/关注为登录用户私有；评论为公开可见
 - **主题**：支持浅色/深色模式，思源黑体字体
 
 ---
@@ -43,7 +44,9 @@
 | Dart 3.11+ | 开发语言 |
 | flutter_quill | 富文本编辑与展示 |
 | http | 网络请求 |
-| shared_preferences | 本地持久化（主题、字体、设置） |
+| shared_preferences | 本地持久化（主题、字体、设置、收藏/关注、Web 本地覆盖） |
+| flutter_riverpod | 状态管理 |
+| isar | 本地数据库（移动端） |
 
 ---
 
@@ -69,7 +72,8 @@ lib/
 │   └── app_typography.dart   # 排版样式
 ├── data/
 │   ├── mock_data.dart        # 静态 Mock 数据（分类、标签等）
-│   └── mock_api_data.dart   # Mock API、数据获取、本地 overlay
+│   ├── mock_api_data.dart   # Mock API、数据获取、本地 overlay
+│   └── local/               # 本地数据源（Isar / Web 持久化）
 ├── models/
 │   ├── blog_post.dart        # 文章模型
 │   └── comment.dart         # 评论模型
@@ -142,11 +146,17 @@ static String baseUrl = 'https://jsonplaceholder.typicode.com';
 
 JSONPlaceholder 返回格式与内部模型不同，`blog_api.dart` 已做映射（如 `body` → `content`，随机分配分类和标签）。
 
-### Mock 模式
+### Mock 模式（多用户登录）
 
 - 编辑、保存、删除、评论等通过 `mock_api_data.dart` 模拟
-- 登录：`admin` / `123456`
-- 本地 overlay 仅会话有效，不持久化
+- 登录账号（硬编码，多用户）：
+  - `bret` / `pw_1001`（userId=1，Leanne Graham）
+  - `antonette` / `pw_2002`（userId=2，Ervin Howell）
+  - `samantha` / `pw_3003`（userId=3，Clementine Bauch）
+  - `karianne` / `pw_4004`（userId=4，Patricia Lebsack）
+  - `kamren` / `pw_5005`（userId=5，Chelsey Dietrich）
+  - `leopoldo` / `pw_6006`（userId=6，Mrs. Dennis Schulist）
+- 本地 overlay 在 Web 端持久化，移动端由 Isar 持久化
 
 ---
 

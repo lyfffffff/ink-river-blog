@@ -14,10 +14,10 @@ import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
 import '../screens/privacy_policy_screen.dart';
 import '../screens/register_screen.dart';
-import '../screens/search_screen.dart';
 import '../screens/setting_screen.dart';
 import '../screens/favorites_screen.dart';
 import '../screens/follows_screen.dart';
+import '../screens/terms_screen.dart';
 import '../services/auth_service.dart';
 import '../models/blog_post.dart';
 
@@ -32,8 +32,10 @@ class AppRoutes {
   static const String about = '/about';
   static const String article = '/article/:id';
   static const String articleEdit = '/article/:id/edit';
+  static const String articleCreate = '/article/new';
   static const String articleManagement = '/article-management';
   static const String privacy = '/privacy';
+  static const String terms = '/terms';
   static const String search = '/search';
   static const String favorites = '/favorites';
   static const String follows = '/follows';
@@ -70,6 +72,7 @@ late final GoRouter appRouter = GoRouter(
         location == AppRoutes.favorites ||
         location == AppRoutes.follows ||
         location == AppRoutes.articleManagement ||
+        location == AppRoutes.articleCreate ||
         location == AppRoutes.articleEdit ||
         (state.uri.path.startsWith('/article/') &&
             state.uri.path.endsWith('/edit'));
@@ -90,7 +93,12 @@ late final GoRouter appRouter = GoRouter(
   routes: [
     GoRoute(
       path: AppRoutes.main,
-      builder: (context, state) => const MainShell(),
+      builder: (context, state) {
+        final tabParam = state.uri.queryParameters['tab'];
+        final tab = int.tryParse(tabParam ?? '') ?? 0;
+        final safeTab = tab.clamp(0, 3);
+        return MainShell(initialIndex: safeTab);
+      },
     ),
     GoRoute(
       path: AppRoutes.login,
@@ -108,6 +116,13 @@ late final GoRouter appRouter = GoRouter(
       path: AppRoutes.about,
       builder: (context, state) =>
           const AboutScreen(showBackButton: true),
+    ),
+    GoRoute(
+      path: AppRoutes.articleCreate,
+      builder: (context, state) => const ArticleEditScreen(
+        postId: 'new',
+        isNew: true,
+      ),
     ),
     GoRoute(
       path: '/article/:id',
@@ -161,8 +176,12 @@ late final GoRouter appRouter = GoRouter(
       builder: (context, state) => const PrivacyPolicyScreen(),
     ),
     GoRoute(
+      path: AppRoutes.terms,
+      builder: (context, state) => const TermsScreen(),
+    ),
+    GoRoute(
       path: AppRoutes.search,
-      builder: (context, state) => const SearchScreen(),
+      builder: (context, state) => const MainShell(initialIndex: 2),
     ),
     GoRoute(
       path: AppRoutes.favorites,

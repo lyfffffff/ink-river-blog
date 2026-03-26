@@ -135,9 +135,14 @@ class LocalDataSource {
     });
   }
 
-  Future<List<LocalChange>> getLocalChanges() async {
+  Future<List<LocalChange>> getLocalChanges({String? userId}) async {
     final isar = await _isar;
-    final entities = await isar.localChangeEntitys.where().findAll();
+    final entities = (userId == null || userId.isEmpty)
+        ? await isar.localChangeEntitys.where().findAll()
+        : await isar.localChangeEntitys
+            .filter()
+            .userIdEqualTo(userId)
+            .findAll();
     return entities.map(_changeFromEntity).toList();
   }
 
@@ -216,6 +221,7 @@ UserRecord _userFromEntity(UserEntity e) => UserRecord(
     );
 
 LocalChangeEntity _changeToEntity(LocalChange change) => LocalChangeEntity()
+  ..userId = change.userId
   ..entityType = change.entityType
   ..entityId = change.entityId
   ..changeType = change.changeType
@@ -223,6 +229,7 @@ LocalChangeEntity _changeToEntity(LocalChange change) => LocalChangeEntity()
   ..createdAt = change.createdAt;
 
 LocalChange _changeFromEntity(LocalChangeEntity e) => LocalChange(
+      userId: e.userId,
       entityType: e.entityType,
       entityId: e.entityId,
       changeType: e.changeType,

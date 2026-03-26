@@ -274,7 +274,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const SizedBox(height: 16),
           ],
           GestureDetector(
-            onTap: () => context.push('/search'),
+            onTap: () => context.go(AppRoutes.search),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(

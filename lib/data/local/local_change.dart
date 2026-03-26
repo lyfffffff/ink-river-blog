@@ -3,6 +3,7 @@ library;
 
 class LocalChange {
   LocalChange({
+    required this.userId,
     required this.entityType,
     required this.entityId,
     required this.changeType,
@@ -10,6 +11,7 @@ class LocalChange {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  final String userId;
   final String entityType;
   final String entityId;
   final String changeType;

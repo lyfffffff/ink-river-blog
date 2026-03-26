@@ -10,6 +10,9 @@ class LocalChangeEntity {
   Id id = Isar.autoIncrement;
 
   @Index()
+  late String userId;
+
+  @Index()
   late String entityType;
 
   @Index()

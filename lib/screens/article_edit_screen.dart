@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
@@ -16,7 +17,10 @@ import '../core/app_typography.dart';
 import '../repositories/blog_repository.dart';
 import '../models/blog_post.dart';
 import '../services/blog_service.dart';
+import '../services/permission_service.dart';
 import '../utils/toast_util.dart';
+import '../routes/app_router.dart';
+import '../controllers/home_controller.dart';
 
 /// 从字符串创建 Quill Document（支持 Delta JSON 或纯文本）
 /// flutter_quill 要求 Document 最后一个节点必须以 \n 结尾
@@ -58,9 +62,16 @@ String _contentFromDocument(Document doc) {
 }
 
 class ArticleEditScreen extends StatefulWidget {
-  const ArticleEditScreen({super.key, required this.postId});
+  const ArticleEditScreen({
+    super.key,
+    required this.postId,
+    this.isNew = false,
+    this.initialPost,
+  });
 
   final String postId;
+  final bool isNew;
+  final BlogPost? initialPost;
 
   @override
   State<ArticleEditScreen> createState() => _ArticleEditScreenState();
@@ -72,7 +83,26 @@ class _ArticleEditScreenState extends State<ArticleEditScreen> {
   @override
   void initState() {
     super.initState();
-    _postFuture = BlogService.getArticleForEdit(widget.postId);
+    if (widget.isNew) {
+      final authorId = PermissionService.currentUserId() ?? '';
+      _postFuture = Future.value(
+        widget.initialPost ??
+            BlogPost(
+              id: 'new',
+              authorId: authorId,
+              title: '',
+              excerpt: '',
+              category: '未分类',
+              date: '',
+              imageUrl: '',
+              content: '',
+              readMinutes: 5,
+              tags: const [],
+            ),
+      );
+    } else {
+      _postFuture = BlogService.getArticleForEdit(widget.postId);
+    }
   }
 
   @override
@@ -132,6 +162,12 @@ class _ArticleEditFormState extends State<_ArticleEditForm> {
   late String _imageUrl;
   late Future<List<String>> _categoriesFuture;
   bool _saving = false;
+  String? _createdPostId;
+
+  void _refreshHome() {
+    final container = ProviderScope.containerOf(context, listen: false);
+    container.read(homeControllerProvider.notifier).refresh();
+  }
 
   @override
   void initState() {
@@ -152,14 +188,69 @@ class _ArticleEditFormState extends State<_ArticleEditForm> {
     if (_saving) return;
     setState(() => _saving = true);
     final contentStr = _contentFromDocument(_quillController.document);
-    final ok = await BlogService.saveArticle(widget.postId, {
+    final authorId =
+        PermissionService.currentUserId() ?? widget.post.authorId;
+    final payload = {
       'title': _titleController.text.trim(),
       'content': contentStr,
       'excerpt': _excerptController.text.trim(),
       'category': _category,
       'tags': _tags,
       'imageUrl': _imageUrl.isNotEmpty ? _imageUrl : null,
-    });
+      'authorId': authorId,
+    };
+    if (widget.post.id == 'new') {
+      if (_createdPostId == null) {
+        final newId = await BlogService.createArticle(payload);
+        if (newId == null) {
+          if (mounted) setState(() => _saving = false);
+          if (mounted) showTopError(context, '发布失败');
+          return;
+        }
+        _createdPostId = newId;
+        if (!mounted) return;
+        setState(() => _saving = false);
+        final created = BlogPost(
+          id: newId,
+          authorId: authorId,
+          title: _titleController.text.trim(),
+          excerpt: _excerptController.text.trim(),
+          category: _category,
+          date: DateTime.now().year.toString(),
+          imageUrl: _imageUrl.isNotEmpty
+              ? _imageUrl
+              : 'https://via.placeholder.com/400x225',
+          content: contentStr,
+          readMinutes: 5,
+          tags: _tags,
+        );
+        if (publish) {
+          showTopMessage(context, '已发布');
+          _refreshHome();
+          context.go(AppRoutes.main);
+        } else {
+          showTopMessage(context, '已保存草稿');
+          context.pop(true);
+        }
+        return;
+      }
+      final ok = await BlogService.saveArticle(_createdPostId!, payload);
+      if (mounted) setState(() => _saving = false);
+      if (!mounted) return;
+      if (ok) {
+        if (publish) {
+          showTopMessage(context, '已发布');
+          _refreshHome();
+          context.go(AppRoutes.main);
+        } else {
+          showTopMessage(context, '已保存草稿');
+        }
+      } else {
+        showTopError(context, '保存失败');
+      }
+      return;
+    }
+    final ok = await BlogService.saveArticle(widget.postId, payload);
     setState(() => _saving = false);
     if (!mounted) return;
     if (ok) {
@@ -227,7 +318,9 @@ class _ArticleEditFormState extends State<_ArticleEditForm> {
             ),
           ),
           Text(
-            '编辑文章',
+            widget.post.id.isEmpty || widget.post.id == 'new'
+                ? '新建文章'
+                : '编辑文章',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w500,

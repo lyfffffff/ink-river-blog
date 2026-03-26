@@ -4,9 +4,16 @@
 /// 编辑、保存、删除、评论等为本地 overlay（会话有效）
 library;
 
+import 'dart:convert';
+import 'dart:math';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../api/blog_api.dart';
 import '../models/blog_post.dart';
 import '../models/comment.dart';
+import 'local/local_data_source.dart';
+import 'local/user_record.dart';
 import 'mock_data.dart';
 
 /// API 响应结构：{code, msg, data}
@@ -31,8 +38,133 @@ final Map<String, Map<String, dynamic>> _savedPostOverrides = {};
 /// Mock 会话状态：本地发布的评论（按 postId 分组，插入到线上评论中）
 final Map<String, List<Comment>> _localCommentsByPostId = {};
 
-/// Mock 会话状态：修改密码后的新密码（内存存储，刷新后恢复为 123456）
-String? _localPasswordOverride;
+class _MockUser {
+  const _MockUser({
+    required this.userId,
+    required this.username,
+    required this.password,
+    required this.displayName,
+  });
+
+  final String userId;
+  final String username;
+  final String password;
+  final String displayName;
+}
+
+const List<_MockUser> _mockUsers = [
+  _MockUser(
+    userId: '1',
+    username: 'bret',
+    password: 'pw_1001',
+    displayName: 'Leanne Graham',
+  ),
+  _MockUser(
+    userId: '2',
+    username: 'antonette',
+    password: 'pw_2002',
+    displayName: 'Ervin Howell',
+  ),
+  _MockUser(
+    userId: '3',
+    username: 'samantha',
+    password: 'pw_3003',
+    displayName: 'Clementine Bauch',
+  ),
+  _MockUser(
+    userId: '4',
+    username: 'karianne',
+    password: 'pw_4004',
+    displayName: 'Patricia Lebsack',
+  ),
+  _MockUser(
+    userId: '5',
+    username: 'kamren',
+    password: 'pw_5005',
+    displayName: 'Chelsey Dietrich',
+  ),
+  _MockUser(
+    userId: '6',
+    username: 'leopoldo',
+    password: 'pw_6006',
+    displayName: 'Mrs. Dennis Schulist',
+  ),
+];
+
+String _normalizeUsername(String value) => value.trim().toLowerCase();
+
+_MockUser? _findUserByUsername(String username) {
+  final key = _normalizeUsername(username);
+  for (final user in _mockUsers) {
+    if (_normalizeUsername(user.username) == key) return user;
+  }
+  return null;
+}
+
+_MockUser? _findUserById(String userId) {
+  for (final user in _mockUsers) {
+    if (user.userId == userId) return user;
+  }
+  return null;
+}
+
+Future<List<Map<String, dynamic>>> _loadRegisteredUsers() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final json = prefs.getString(_kRegisteredUsersKey);
+    if (json == null || json.isEmpty) return [];
+    final decoded = jsonDecode(json);
+    if (decoded is List) {
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+  } catch (_) {}
+  return [];
+}
+
+Future<void> _saveRegisteredUsers(List<Map<String, dynamic>> users) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kRegisteredUsersKey, jsonEncode(users));
+  } catch (_) {}
+}
+
+Future<Map<String, dynamic>?> _findRegisteredUserByUsername(
+  String username,
+) async {
+  final list = await _loadRegisteredUsers();
+  final key = _normalizeUsername(username);
+  for (final user in list) {
+    final name = user['username']?.toString() ?? '';
+    if (_normalizeUsername(name) == key) return user;
+  }
+  return null;
+}
+
+Future<Map<String, dynamic>?> _findRegisteredUserById(String userId) async {
+  final list = await _loadRegisteredUsers();
+  for (final user in list) {
+    if (user['id']?.toString() == userId) return user;
+  }
+  return null;
+}
+
+int _nextUserId(List<Map<String, dynamic>> registered) {
+  var maxId = 1000;
+  for (final user in registered) {
+    final raw = user['id']?.toString() ?? '';
+    final normalized = raw.startsWith('r_') ? raw.substring(2) : raw;
+    final value = int.tryParse(normalized) ?? 0;
+    maxId = max(maxId, value);
+  }
+  return maxId + 1;
+}
+
+/// Mock 会话状态：修改密码后的新密码（内存存储，刷新后恢复为默认）
+final Map<String, String> _localPasswordOverrideByUser = {};
+const String _kRegisteredUsersKey = 'mock_registered_users';
 
 /// 文章、评论统一使用线上 API，此处仅作 fallback 占位（空列表）
 final List<BlogPost> mockPosts = [];
@@ -170,8 +302,55 @@ Map<String, dynamic> _profileToMap() => {
 ///  模拟业务接口
 /// ============================
 
-/// 当前有效密码（修改密码后使用新密码，刷新后恢复 123456）
-String _getEffectivePassword() => _localPasswordOverride ?? '123456';
+/// 当前有效密码（修改密码后使用新密码，刷新后恢复为默认）
+String _getEffectivePassword(String userId, String fallback) {
+  return _localPasswordOverrideByUser[userId] ?? fallback;
+}
+
+/// /register 注册接口
+/// 参数：username, email, password
+Future<Map<String, dynamic>> register({
+  required String username,
+  required String email,
+  required String password,
+}) async {
+  final existsPreset = _findUserByUsername(username) != null;
+  final existsRegistered =
+      await _findRegisteredUserByUsername(username) != null;
+  if (existsPreset || existsRegistered) {
+    return _delay(apiResponse(code: 409, msg: '用户名已存在', data: null));
+  }
+  final registered = await _loadRegisteredUsers();
+  final nextId = 'r_${_nextUserId(registered)}';
+  final displayName = username.trim().isEmpty ? '用户$nextId' : username.trim();
+  final avatarUrl = 'https://i.pravatar.cc/128?u=$nextId';
+  final aboutAvatarUrl = 'https://i.pravatar.cc/256?u=$nextId';
+  final payload = {
+    'id': nextId,
+    'username': username.trim(),
+    'password': password,
+    'nickname': displayName,
+    'avatarUrl': avatarUrl,
+    'subtitle': email.trim(),
+    'email': email.trim(),
+  };
+  registered.add(payload);
+  await _saveRegisteredUsers(registered);
+
+  await LocalDataSource.instance.upsertUser(
+    UserRecord(
+      userId: nextId,
+      name: displayName,
+      subtitle: email.trim(),
+      quote: '',
+      avatarUrl: avatarUrl,
+      aboutAvatarUrl: aboutAvatarUrl,
+      aboutSubtitle: email.trim(),
+    ),
+  );
+
+  return _delay(apiResponse(msg: '注册成功', data: payload));
+}
 
 /// /login 登录接口
 /// 参数：username, password
@@ -180,16 +359,40 @@ Future<Map<String, dynamic>> login({
   required String username,
   required String password,
 }) async {
-  if (username == 'admin' && password == _getEffectivePassword()) {
-    final user = {
-      'id': '1',
-      'username': username,
-      'nickname': userInfo['name'],
-      'avatarUrl': userInfo['avatarUrl'],
+  final registered = await _findRegisteredUserByUsername(username);
+  if (registered != null) {
+    final userId = registered['id']?.toString() ?? '';
+    final rawPassword = registered['password']?.toString() ?? '';
+    final effectivePassword = _getEffectivePassword(userId, rawPassword);
+    if (password != effectivePassword) {
+      return _delay(apiResponse(code: 401, msg: '用户名或密码错误', data: null));
+    }
+    final payload = {
+      'id': userId,
+      'username': registered['username']?.toString() ?? username,
+      'nickname': registered['nickname']?.toString() ?? username,
+      'avatarUrl': registered['avatarUrl']?.toString() ??
+          'https://i.pravatar.cc/128?u=$userId',
+      'subtitle': registered['subtitle']?.toString() ?? '',
     };
-    return _delay(apiResponse(data: user));
+    return _delay(apiResponse(data: payload));
   }
-  return _delay(apiResponse(code: 401, msg: '用户名或密码错误', data: null));
+
+  final user = _findUserByUsername(username);
+  if (user == null) {
+    return _delay(apiResponse(code: 401, msg: '用户不存在', data: null));
+  }
+  final effectivePassword = _getEffectivePassword(user.userId, user.password);
+  if (password != effectivePassword) {
+    return _delay(apiResponse(code: 401, msg: '用户名或密码错误', data: null));
+  }
+  final payload = {
+    'id': user.userId,
+    'username': user.username,
+    'nickname': user.displayName,
+    'avatarUrl': 'https://i.pravatar.cc/128?u=${user.userId}',
+  };
+  return _delay(apiResponse(data: payload));
 }
 
 /// /blog 获取用户博客信息
@@ -246,6 +449,7 @@ Future<Map<String, dynamic>> saveArticle(
   }
   final merged = {
     'id': id,
+    'authorId': article['authorId'] ?? existing['authorId'],
     'title': article['title'] ?? existing['title'],
     'excerpt': article['excerpt'] ?? existing['excerpt'],
     'category': article['category'] ?? existing['category'],
@@ -292,12 +496,28 @@ Future<Map<String, dynamic>> changePassword({
     return _delay(apiResponse(code: 400, msg: '两次输入的新密码不一致', data: null));
   }
 
-  // 校验旧密码（支持修改密码后的新密码作为旧密码）
-  if (oldPassword != _getEffectivePassword()) {
+  final user = _findUserById(userId);
+  final registered = await _loadRegisteredUsers();
+  final regIndex =
+      registered.indexWhere((u) => u['id']?.toString() == userId);
+  final regUser = regIndex >= 0 ? registered[regIndex] : null;
+  if (user == null && regUser == null) {
+    return _delay(apiResponse(code: 404, msg: '用户不存在', data: null));
+  }
+
+  final fallbackPassword =
+      user?.password ?? regUser?['password']?.toString() ?? '';
+  final effectivePassword = _getEffectivePassword(userId, fallbackPassword);
+  if (oldPassword != effectivePassword) {
     return _delay(apiResponse(code: 400, msg: '旧密码不正确', data: null));
   }
 
-  _localPasswordOverride = newPassword;
+  _localPasswordOverrideByUser[userId] = newPassword;
+  if (regUser != null) {
+    regUser['password'] = newPassword;
+    registered[regIndex] = regUser;
+    await _saveRegisteredUsers(registered);
+  }
   return _delay(apiResponse(msg: '密码修改成功', data: {'userId': userId}));
 }
 

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/auth_form_field.dart';
 import '../components/primary_button.dart';
+import '../data/mock_api_data.dart';
 import '../utils/toast_util.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
@@ -26,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _agreed = false;
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -36,16 +38,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
+    if (_submitting) return;
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (!_agreed) {
       showTopError(context, '请先阅读并同意服务条款和隐私政策');
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('注册成功')),
+    setState(() => _submitting = true);
+    final res = await register(
+      username: _usernameController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
     );
-    context.pop();
+    if (mounted) setState(() => _submitting = false);
+    if (!mounted) return;
+    if (res['code'] == 200) {
+      showTopMessage(context, '注册成功，请登录');
+      context.go('/login');
+    } else {
+      showTopError(context, res['msg'] as String? ?? '注册失败');
+    }
   }
 
   @override
@@ -166,31 +179,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                   children: [
                                     const TextSpan(text: '我已阅读并同意 '),
-                                    WidgetSpan(
-                                      child: GestureDetector(
-                                        onTap: () {},
-                                        child: Text(
-                                          '服务条款',
-                                          style: TextStyle(
-                                            color: AppColors.primary,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                    WidgetSpan(
+                      child: GestureDetector(
+                        onTap: () => context.push('/terms'),
+                        child: Text(
+                          '服务条款',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
                                     const TextSpan(text: ' 和 '),
-                                    WidgetSpan(
-                                      child: GestureDetector(
-                                        onTap: () {},
-                                        child: Text(
-                                          '隐私政策',
-                                          style: TextStyle(
-                                            color: AppColors.primary,
-                                            decoration: TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                    WidgetSpan(
+                      child: GestureDetector(
+                        onTap: () => context.push('/privacy'),
+                        child: Text(
+                          '隐私政策',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ),
                                   ],
                                 ),
                               ),
@@ -200,9 +213,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       const SizedBox(height: 24),
                       PrimaryButton(
-                        label: '注册',
+                        label: _submitting ? '注册中...' : '注册',
                         height: 56,
-                        onPressed: _submit,
+                        onPressed: _submitting ? () {} : _submit,
                       ),
                       const SizedBox(height: 24),
                       Row(
