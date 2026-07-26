@@ -8,8 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../components/app-bar.dart';
+import '../components/app_network_image.dart';
 import '../components/error_view.dart';
-import '../components/loading_view.dart';
+import '../components/skeleton.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
 import '../core/app_typography.dart';
@@ -86,7 +87,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: homeAsync.when(
-        loading: () => const LoadingView(),
+        loading: () => const HomeSkeleton(),
         error: (error, _) => ErrorView(
           message: '加载失败: $error',
           onRetry: () => ref.read(homeControllerProvider.notifier).refresh(),
@@ -157,6 +158,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     hasNext: hasNext,
                   ),
                 ),
+                if (data.isLoadingMore)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
                 SliverToBoxAdapter(child: _buildFooter(context, categories)),
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
@@ -234,14 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               ),
               child: ClipOval(
-                child: Image.network(
-                  avatarUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    child: const Icon(Icons.person, size: 48),
-                  ),
-                ),
+                child: AppNetworkImage(src: avatarUrl),
               ),
             ),
             const SizedBox(height: 16),
@@ -503,20 +504,11 @@ class _PostCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                post.imageUrl,
-                width: 120,
-                height: 120,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 120,
-                  height: 120,
-                  color: colorScheme.surfaceContainerHighest,
-                  child: Icon(Icons.image, color: colorScheme.outline),
-                ),
-              ),
+            AppNetworkImage(
+              src: post.imageUrl,
+              width: 120,
+              height: 120,
+              borderRadius: 12,
             ),
             const SizedBox(width: 16),
             Expanded(

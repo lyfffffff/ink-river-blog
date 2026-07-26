@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../core/app_exception.dart';
 import 'api_config.dart';
 
 /// API 响应结构（与 mock 保持一致）
@@ -24,24 +25,26 @@ class ApiClient {
 
   /// GET 请求
   /// [path] 完整 URL 或相对路径
-  /// 返回 { code, msg, data } 或抛出异常
+  /// 返回 { code, msg, data }；网络/解析异常时抛出 [AppException]
   Future<ApiResponse> get(String path) async {
-    final uri = path.startsWith('http') ? Uri.parse(path) : Uri.parse('${ApiConfig.baseUrl}$path');
+    final uri = path.startsWith('http')
+        ? Uri.parse(path)
+        : Uri.parse('${ApiConfig.baseUrl}$path');
     try {
       final response = await _client.get(uri).timeout(_timeout);
       return _parseResponse(response);
+    } on AppException {
+      rethrow;
     } catch (e) {
-      return {
-        'code': -1,
-        'msg': '网络请求失败: $e',
-        'data': null,
-      };
+      throw AppException('网络连接失败，请检查网络后重试', cause: e);
     }
   }
 
   /// POST 请求
   Future<ApiResponse> post(String path, {Map<String, dynamic>? body}) async {
-    final uri = path.startsWith('http') ? Uri.parse(path) : Uri.parse('${ApiConfig.baseUrl}$path');
+    final uri = path.startsWith('http')
+        ? Uri.parse(path)
+        : Uri.parse('${ApiConfig.baseUrl}$path');
     try {
       final response = await _client
           .post(
@@ -51,12 +54,10 @@ class ApiClient {
           )
           .timeout(_timeout);
       return _parseResponse(response);
+    } on AppException {
+      rethrow;
     } catch (e) {
-      return {
-        'code': -1,
-        'msg': '网络请求失败: $e',
-        'data': null,
-      };
+      throw AppException('网络连接失败，请检查网络后重试', cause: e);
     }
   }
 
@@ -77,25 +78,25 @@ class ApiClient {
           return json;
         }
         return {
-          'code': response.statusCode >= 200 && response.statusCode < 300 ? 200 : response.statusCode,
+          'code': response.statusCode >= 200 && response.statusCode < 300
+              ? 200
+              : response.statusCode,
           'msg': json['msg'] ?? (response.statusCode == 200 ? '成功' : '请求失败'),
           'data': json['data'] ?? json,
         };
       }
       if (json is List) {
         return {
-          'code': response.statusCode >= 200 && response.statusCode < 300 ? 200 : response.statusCode,
+          'code': response.statusCode >= 200 && response.statusCode < 300
+              ? 200
+              : response.statusCode,
           'msg': '成功',
           'data': json,
         };
       }
       return {'code': 200, 'msg': '成功', 'data': json};
     } catch (e) {
-      return {
-        'code': -2,
-        'msg': '解析失败: $e',
-        'data': null,
-      };
+      throw AppException('数据解析失败', cause: e);
     }
   }
 }

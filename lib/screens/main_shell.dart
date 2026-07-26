@@ -24,19 +24,32 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   late int _currentIndex;
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const CategoryScreen(),
-    const SearchScreen(),
-    const AboutScreen(showBackButton: false),
-  ];
+  /// 懒加载的子页面缓存，首次访问时才构建。
+  ///
+  /// 原实现用 IndexedStack 一次性构建全部 4 个 tab（含 About 的网络请求），
+  /// 改为懒加载后，未访问的 tab 仅占位，避免无谓的初始化开销。
+  final List<Widget?> _screens = List<Widget?>.filled(4, null);
+
+  Widget _screenAt(int index) {
+    return _screens[index] ??= switch (index) {
+      0 => const HomeScreen(),
+      1 => const CategoryScreen(),
+      2 => const SearchScreen(),
+      _ => const AboutScreen(showBackButton: false),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          for (int i = 0; i < 4; i++)
+            i == _currentIndex || _screens[i] != null
+                ? _screenAt(i)
+                : const SizedBox.shrink(),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

@@ -1,3 +1,5 @@
 @echo off
-REM 使用 HTML 渲染器运行，避免加载 CanvasKit 和 Google 字体（解决网络受限问题）
-flutter run -d chrome --web-renderer=html
+REM 以 Web 模式运行（Chrome）。
+REM Flutter 3.10+ 已移除 HTML 渲染器，使用默认 CanvasKit/Skwasm 渲染器。
+REM 网络受限环境请设置环境变量 FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+flutter run -d chrome

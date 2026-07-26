@@ -6,6 +6,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../components/app_network_image.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
 import '../core/app_typography.dart';
@@ -150,14 +151,7 @@ class _AboutScreenState extends State<AboutScreen> {
               ),
             ),
             child: ClipOval(
-              child: Image.network(
-                aboutAvatarUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  child: const Icon(Icons.person, size: 64),
-                ),
-              ),
+              child: AppNetworkImage(src: aboutAvatarUrl),
             ),
           ),
           const SizedBox(height: 24),

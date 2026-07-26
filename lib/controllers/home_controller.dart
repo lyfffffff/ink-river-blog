@@ -15,6 +15,8 @@ class HomeState {
     required this.page,
     required this.totalCount,
     required this.hasNext,
+    this.isLoadingMore = false,
+    this.isRefreshing = false,
   });
 
   final Map<String, dynamic> user;
@@ -24,6 +26,12 @@ class HomeState {
   final int totalCount;
   final bool hasNext;
 
+  /// 翻页加载中（保留已有列表，底部显示 loading）
+  final bool isLoadingMore;
+
+  /// 下拉刷新中（保留已有列表，RefreshIndicator 显示指示器）
+  final bool isRefreshing;
+
   HomeState copyWith({
     Map<String, dynamic>? user,
     List<BlogPost>? posts,
@@ -31,6 +39,8 @@ class HomeState {
     int? page,
     int? totalCount,
     bool? hasNext,
+    bool? isLoadingMore,
+    bool? isRefreshing,
   }) {
     return HomeState(
       user: user ?? this.user,
@@ -39,6 +49,8 @@ class HomeState {
       page: page ?? this.page,
       totalCount: totalCount ?? this.totalCount,
       hasNext: hasNext ?? this.hasNext,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
     );
   }
 
@@ -62,12 +74,31 @@ class HomeController extends StateNotifier<AsyncValue<HomeState>> {
   final BlogRepository _repo;
 
   Future<void> load({int page = 1}) async {
-    state = const AsyncValue.loading();
+    final previous = state.valueOrNull;
+    if (previous == null) {
+      // 首次加载：显示骨架屏
+      state = const AsyncValue.loading();
+    } else {
+      // 翻页或刷新时保留已有数据，避免全屏闪烁
+      state = AsyncValue.data(
+        previous.copyWith(
+          isLoadingMore: page > 1,
+          isRefreshing: page == 1,
+        ),
+      );
+    }
     try {
       final data = await _repo.getHomeData(page: page);
       state = AsyncValue.data(HomeState.fromMap(data));
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (previous == null) {
+        state = AsyncValue.error(e, st);
+      } else {
+        // 翻页/刷新失败时保留旧数据，仅清除加载态
+        state = AsyncValue.data(
+          previous.copyWith(isLoadingMore: false, isRefreshing: false),
+        );
+      }
     }
   }
 
@@ -76,6 +107,7 @@ class HomeController extends StateNotifier<AsyncValue<HomeState>> {
   Future<void> goToPage(int page) async => load(page: page);
 }
 
-final homeControllerProvider = StateNotifierProvider<HomeController, AsyncValue<HomeState>>(
+final homeControllerProvider =
+    StateNotifierProvider<HomeController, AsyncValue<HomeState>>(
   (ref) => HomeController(ref.read(blogRepositoryProvider)),
 );

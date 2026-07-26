@@ -40,9 +40,13 @@ class BlogRepository {
       final merged = await _applyLocalChanges(remote);
       localPosts = merged;
       return _buildHomeData(localPosts, page: page);
-    } catch (_) {
-      final merged = await _applyLocalChanges(localPosts);
-      return _buildHomeData(merged, page: page);
+    } catch (e) {
+      // 远程失败：有本地缓存则降级展示，无缓存则向上抛出以展示错误态
+      if (localPosts.isNotEmpty) {
+        final merged = await _applyLocalChanges(localPosts);
+        return _buildHomeData(merged, page: page);
+      }
+      rethrow;
     }
   }
 
@@ -50,8 +54,12 @@ class BlogRepository {
   Future<void> syncInitialData() async {
     final localPosts = await _local.getPosts();
     if (localPosts.isNotEmpty) return;
-    final remote = await _remote.fetchPostsPage(1, 100);
-    await _cachePosts(remote);
+    try {
+      final remote = await _remote.fetchPostsPage(1, 100);
+      await _cachePosts(remote);
+    } catch (_) {
+      // 首次同步失败不阻塞启动，后续进入首页会重试
+    }
   }
 
   /// 刷新缓存
@@ -74,8 +82,28 @@ class BlogRepository {
       await _cachePosts(remote);
       final merged = await _applyLocalChanges(remote);
       return merged;
-    } catch (_) {
-      return _applyLocalChanges(const <BlogPost>[]);
+    } catch (e) {
+      // 本地无缓存且远程失败：向上抛出以展示错误态
+      rethrow;
+    }
+  }
+
+  /// 单篇文章（按 ID 精确查询）
+  ///
+  /// 优先查本地缓存，未命中再请求远程单条接口，
+  /// 避免为获取一篇文章而拉取整张列表。
+  Future<BlogPost?> getPostById(String id) async {
+    final localPosts = await _local.getPosts();
+    final localMatch = localPosts.where((p) => p.id == id).toList();
+    if (localMatch.isNotEmpty) {
+      final merged = await _applyLocalChanges(localMatch);
+      return merged.isNotEmpty ? merged.first : localMatch.first;
+    }
+    try {
+      return await _remote.fetchPostById(id);
+    } catch (e) {
+      // 本地无匹配且远程失败：向上抛出
+      rethrow;
     }
   }
 
@@ -148,8 +176,10 @@ class BlogRepository {
       final remote = await _remote.fetchComments(postId);
       await _local.upsertComments(postId, remote);
       return remote;
-    } catch (_) {
-      return local;
+    } catch (e) {
+      // 本地有评论则降级，无则向上抛出
+      if (local.isNotEmpty) return local;
+      rethrow;
     }
   }
 

@@ -18,7 +18,7 @@ import '../core/app_typography.dart';
 import '../controllers/search_controller.dart';
 import '../models/blog_post.dart';
 import '../routes/app_router.dart';
-import 'article_detail_screen.dart';
+import '../services/search_history_service.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -34,12 +34,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   static const double _showBackToTopThreshold = 400;
   bool _showBackToTop = false;
   Timer? _debounceTimer;
+  List<String> _history = const [];
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
     _scrollController.addListener(_onScroll);
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final h = await SearchHistoryService.load();
+    if (mounted) setState(() => _history = h);
   }
 
   void _onSearchChanged() {
@@ -69,7 +76,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _doSearch(String keyword) {
-    ref.read(searchControllerProvider.notifier).search(keyword);
+    final k = keyword.trim();
+    ref.read(searchControllerProvider.notifier).search(k);
+    if (k.isNotEmpty) {
+      SearchHistoryService.add(k).then((_) => _loadHistory());
+    }
   }
 
   @override
@@ -135,13 +146,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           ),
                         ],
                       ),
+                      if (_searchController.text.isEmpty &&
+                          _history.isNotEmpty)
+                        _buildSearchHistory(context),
                       const SizedBox(height: 24),
                       searchAsync.when(
                         loading: () => const Padding(
                           padding: EdgeInsets.all(32),
                           child: LoadingView(),
                         ),
-                        error: (_, __) => const EmptyView(
+                        error: (_, _) => const EmptyView(
                           message: '搜索失败，请重试',
                           icon: Icons.search_off_rounded,
                         ),
@@ -191,6 +205,60 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSearchHistory(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '搜索历史',
+              style: AppTypography.displayMedium(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () async {
+                await SearchHistoryService.clear();
+                _loadHistory();
+              },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const Text('清空'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _history.map((k) => _historyChip(k)).toList(),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _historyChip(String keyword) {
+    return InputChip(
+      label: Text(keyword),
+      onPressed: () {
+        _searchController.text = keyword;
+        _searchController.selection = TextSelection.fromPosition(
+          TextPosition(offset: keyword.length),
+        );
+        _doSearch(keyword);
+      },
+      deleteIcon: const Icon(Icons.close_rounded, size: 16),
+      onDeleted: () async {
+        await SearchHistoryService.remove(keyword);
+        _loadHistory();
+      },
     );
   }
 

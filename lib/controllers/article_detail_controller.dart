@@ -47,8 +47,13 @@ class ArticleDetailController
     state = const AsyncValue.loading();
     try {
       final post = initial ?? await _fetchPost(postId);
-      final comments = await _repo.getComments(postId);
-      final profile = await _repo.getProfile(userId: post.authorId);
+      // 评论与作者资料互不依赖，并行加载以减少串行往返
+      final results = await Future.wait([
+        _repo.getComments(postId),
+        _repo.getProfile(userId: post.authorId),
+      ]);
+      final comments = results[0] as List<Comment>;
+      final profile = results[1] as Map<String, dynamic>;
       final isFav = FavoriteService.instance.isFavorite(postId);
       state = AsyncValue.data(
         ArticleDetailState(
@@ -83,9 +88,13 @@ class ArticleDetailController
     );
   }
 
+  /// 按文章 ID 精确查询，避免拉取全部文章列表
   Future<BlogPost> _fetchPost(String postId) async {
-    final posts = await _repo.getPosts();
-    return posts.firstWhere((p) => p.id == postId);
+    final post = await _repo.getPostById(postId);
+    if (post == null) {
+      throw Exception('文章不存在');
+    }
+    return post;
   }
 }
 

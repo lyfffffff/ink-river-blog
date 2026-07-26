@@ -5,6 +5,7 @@ library;
 
 import 'dart:math';
 
+import '../core/app_exception.dart';
 import '../data/mock_data.dart';
 import '../models/blog_post.dart';
 import '../models/comment.dart';
@@ -30,10 +31,12 @@ class BlogApi {
       ApiConfig.postsPagePath(page, limit),
     );
     if (res['code'] != 200 || res['data'] == null) {
-      return [];
+      throw AppException(res['msg'] as String? ?? '获取文章列表失败');
     }
     final data = res['data'];
-    if (data is! List) return [];
+    if (data is! List) {
+      throw AppException('文章列表数据格式异常');
+    }
     return data.map((e) => _postFromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -91,7 +94,9 @@ class BlogApi {
   /// 获取单篇文章 GET /posts/{id}
   static Future<BlogPost?> fetchPostById(String id) async {
     final res = await ApiClient.instance.get(ApiConfig.postPath(id));
-    if (res['code'] != 200 || res['data'] == null) return null;
+    if (res['code'] != 200 || res['data'] == null) {
+      throw AppException(res['msg'] as String? ?? '文章加载失败');
+    }
     final m = res['data'] as Map<String, dynamic>;
     return _postFromMap(m);
   }
@@ -100,9 +105,13 @@ class BlogApi {
   /// JSONPlaceholder: id, postId, name, email, body
   static Future<List<Comment>> fetchComments(String postId) async {
     final res = await ApiClient.instance.get(ApiConfig.commentsPath(postId));
-    if (res['code'] != 200 || res['data'] == null) return [];
+    if (res['code'] != 200 || res['data'] == null) {
+      throw AppException(res['msg'] as String? ?? '评论加载失败');
+    }
     final data = res['data'];
-    if (data is! List) return [];
+    if (data is! List) {
+      throw AppException('评论数据格式异常');
+    }
     return data.map((e) => _commentFromMap(e as Map<String, dynamic>)).toList();
   }
 
@@ -123,7 +132,9 @@ class BlogApi {
   /// 缺失字段用 Mock 补全
   static Future<Map<String, dynamic>> fetchUser(String userId) async {
     final res = await ApiClient.instance.get(ApiConfig.userPath(userId));
-    if (res['code'] != 200 || res['data'] == null) return {};
+    if (res['code'] != 200 || res['data'] == null) {
+      throw AppException(res['msg'] as String? ?? '用户信息加载失败');
+    }
     final m = res['data'] as Map<String, dynamic>;
     return _userToProfile(m);
   }

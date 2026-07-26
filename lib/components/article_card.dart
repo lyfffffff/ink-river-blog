@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../core/app_typography.dart';
 import '../models/blog_post.dart';
+import 'app_network_image.dart';
 
 /// 文章卡片
 ///
@@ -108,23 +109,11 @@ class ArticleCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    post.imageUrl,
-                    width: 100,
-                    height: 75,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, e, st) => Container(
-                      width: 100,
-                      height: 75,
-                      color: colorScheme.surfaceContainerHighest,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: colorScheme.outline,
-                      ),
-                    ),
-                  ),
+                AppNetworkImage(
+                  src: post.imageUrl,
+                  width: 100,
+                  height: 75,
+                  borderRadius: 8,
                 ),
               ],
             ),

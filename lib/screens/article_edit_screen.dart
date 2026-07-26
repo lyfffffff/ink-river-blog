@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../components/app_network_image.dart';
 import '../constants/app_constants.dart';
 import '../constants/color.dart';
 import '../core/app_typography.dart';
@@ -511,9 +512,9 @@ class _ArticleEditFormState extends State<_ArticleEditForm> {
                 ),
               ),
               child: _imageUrl.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.network(_imageUrl, fit: BoxFit.cover),
+                  ? AppNetworkImage(
+                      src: _imageUrl,
+                      borderRadius: 6,
                     )
                   : Column(
                       mainAxisAlignment: MainAxisAlignment.center,

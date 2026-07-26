@@ -14,6 +14,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:flutter_quill/flutter_quill.dart';
 
 import 'package:flutter_application_1/components/app-bar.dart';
+import 'package:flutter_application_1/components/app_network_image.dart';
+import 'package:flutter_application_1/components/error_view.dart';
+import 'package:flutter_application_1/core/app_exception.dart';
 
 import '../constants/app_constants.dart';
 import '../routes/app_router.dart';
@@ -172,18 +175,16 @@ class _ArticleDetailScreenState extends ConsumerState<ArticleDetailScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text('加载失败: $error'),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => context.pop(),
-                child: const Text('返回'),
+        error: (error, _) => ErrorView(
+          message: error is AppException
+              ? error.message
+              : '加载失败: $error',
+          onRetry: () => ref
+              .read(articleDetailControllerProvider.notifier)
+              .load(
+                postId: widget.post.id,
+                initial: widget.forceLoad ? null : widget.post,
               ),
-            ],
-          ),
         ),
         data: (detail) {
           final post = detail.post;
@@ -355,18 +356,7 @@ return Padding(
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
               aspectRatio: 16 / 9,
-              child: Image.network(
-                post.imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: Icon(
-                    Icons.image,
-                    size: 48,
-                    color: Theme.of(context).colorScheme.outline,
-                  ),
-                ),
-              ),
+              child: AppNetworkImage(src: post.imageUrl),
             ),
           ),
           Positioned(
