@@ -197,6 +197,16 @@ class BlogRepository {
     _local.upsertComment(postId, comment);
   }
 
+  /// 删除本地评论
+  Future<void> deleteComment(String postId, String commentId) async {
+    await _local.deleteComment(postId, commentId);
+  }
+
+  /// 更新本地评论
+  Future<void> updateComment(String postId, Comment comment) async {
+    await _local.updateComment(postId, comment);
+  }
+
   Future<void> _cachePosts(List<BlogPost> posts) async {
     await _local.upsertPosts(posts);
   }

@@ -1014,6 +1014,122 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
     ).then((_) => controller.dispose());
   }
 
+  void _confirmDeleteComment(BuildContext context, Comment comment) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除评论'),
+        content: const Text('确定删除这条评论吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => ctx.pop(),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              ctx.pop();
+              ref
+                  .read(articleDetailControllerProvider.notifier)
+                  .deleteComment(comment.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('评论已删除')),
+              );
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditCommentModal(
+    BuildContext context,
+    BlogPost post,
+    Comment comment,
+  ) {
+    final controller = TextEditingController(text: comment.content);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(ctx).scaffoldBackgroundColor,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '编辑评论',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(ctx).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  hintText: '写下你的评论...',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  filled: true,
+                  fillColor:
+                      Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                ),
+                autofocus: true,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => ctx.pop(),
+                      child: const Text('取消'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        final content = controller.text.trim();
+                        ctx.pop();
+                        if (content.isNotEmpty &&
+                            content != comment.content) {
+                          ref
+                              .read(articleDetailControllerProvider.notifier)
+                              .updateComment(
+                                comment.copyWith(
+                                  content: content,
+                                  timeAgo: '已编辑',
+                                ),
+                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('评论已更新')),
+                          );
+                        }
+                      },
+                      child: const Text('保存'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ).then((_) => controller.dispose());
+  }
+
   Widget _buildComments(
     BuildContext context,
     BlogPost post,
@@ -1073,7 +1189,14 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
             ],
           ),
           const SizedBox(height: 24),
-          ...displayed.map((c) => _CommentItem(comment: c)),
+          ...displayed.map(
+            (c) => _CommentItem(
+              comment: c,
+              isOwner: c.id.startsWith('local_'),
+              onDelete: () => _confirmDeleteComment(context, c),
+              onEdit: () => _showEditCommentModal(context, post, c),
+            ),
+          ),
           const SizedBox(height: 24),
           if (hasMore)
             Material(
@@ -1123,9 +1246,17 @@ final avatarUrl = profile['avatarUrl'] as String? ?? '';
 }
 
 class _CommentItem extends StatelessWidget {
-  const _CommentItem({required this.comment});
+  const _CommentItem({
+    required this.comment,
+    this.isOwner = false,
+    this.onDelete,
+    this.onEdit,
+  });
 
   final Comment comment;
+  final bool isOwner;
+  final VoidCallback? onDelete;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -1202,6 +1333,28 @@ class _CommentItem extends StatelessWidget {
                       '回复',
                       style: TextStyle(fontSize: 12, color: colorScheme.outline),
                     ),
+                    if (isOwner) ...[
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: onEdit,
+                        child: Text(
+                          '编辑',
+                          style:
+                              TextStyle(fontSize: 12, color: colorScheme.outline),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: Text(
+                          '删除',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red.withValues(alpha: 0.8),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

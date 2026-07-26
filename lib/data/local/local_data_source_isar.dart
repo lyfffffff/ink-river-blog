@@ -80,6 +80,30 @@ class LocalDataSource {
     });
   }
 
+  Future<bool> deleteComment(String postId, String commentId) async {
+    final isar = await _isar;
+    final entity = await isar.commentEntitys
+        .filter()
+        .commentIdEqualTo(commentId)
+        .findFirst();
+    if (entity == null) return false;
+    return isar.writeTxn(() async => isar.commentEntitys.delete(entity.id));
+  }
+
+  Future<bool> updateComment(String postId, Comment comment) async {
+    final isar = await _isar;
+    final existing = await isar.commentEntitys
+        .filter()
+        .commentIdEqualTo(comment.id)
+        .findFirst();
+    if (existing == null) return false;
+    final entity = _commentToEntity(comment, postId)..id = existing.id;
+    await isar.writeTxn(() async {
+      await isar.commentEntitys.put(entity);
+    });
+    return true;
+  }
+
   // Favorites
   Future<Set<String>> getFavoriteIds() async {
     final isar = await _isar;

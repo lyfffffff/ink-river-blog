@@ -88,6 +88,32 @@ class ArticleDetailController
     );
   }
 
+  /// 删除评论（仅本地评论）
+  Future<void> deleteComment(String commentId) async {
+    final value = state.valueOrNull;
+    if (value == null) return;
+    await _repo.deleteComment(value.post.id, commentId);
+    state = AsyncValue.data(
+      value.copyWith(
+        comments: value.comments.where((c) => c.id != commentId).toList(),
+      ),
+    );
+  }
+
+  /// 编辑评论（仅本地评论）
+  Future<void> updateComment(Comment updated) async {
+    final value = state.valueOrNull;
+    if (value == null) return;
+    await _repo.updateComment(value.post.id, updated);
+    state = AsyncValue.data(
+      value.copyWith(
+        comments: value.comments
+            .map((c) => c.id == updated.id ? updated : c)
+            .toList(),
+      ),
+    );
+  }
+
   /// 按文章 ID 精确查询，避免拉取全部文章列表
   Future<BlogPost> _fetchPost(String postId) async {
     final post = await _repo.getPostById(postId);

@@ -128,6 +128,28 @@ class LocalDataSource {
     await _saveComments();
   }
 
+  Future<bool> deleteComment(String postId, String commentId) async {
+    await _ensureLoaded();
+    final list = _commentsByPost[postId];
+    if (list == null) return false;
+    final index = list.indexWhere((c) => c.id == commentId);
+    if (index == -1) return false;
+    list.removeAt(index);
+    await _saveComments();
+    return true;
+  }
+
+  Future<bool> updateComment(String postId, Comment comment) async {
+    await _ensureLoaded();
+    final list = _commentsByPost[postId];
+    if (list == null) return false;
+    final index = list.indexWhere((c) => c.id == comment.id);
+    if (index == -1) return false;
+    list[index] = comment;
+    await _saveComments();
+    return true;
+  }
+
   // Favorites
   Future<Set<String>> getFavoriteIds() async => Set<String>.from(_favoriteIds);
 

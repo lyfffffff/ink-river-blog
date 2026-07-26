@@ -10,12 +10,12 @@
 
 | 功能 | 说明 |
 |------|------|
-| **首页** | 文章列表分页展示（每页 10 条），支持下拉刷新、翻页 |
+| **首页** | 文章列表分页展示（每页 10 条），支持下拉刷新、翻页，首屏骨架屏 |
 | **分类** | 按分类筛选文章，默认选中第一个分类 |
-| **搜索** | 关键词搜索（标题、摘要、内容、标签），默认显示第一页数据 |
+| **搜索** | 关键词搜索（标题、摘要、内容、标签），默认显示第一页数据，搜索历史持久化（增删清） |
 | **关于** | 个人简介、技能、时间线展示 |
-| **文章详情** | 富文本/纯文本展示，上一篇/下一篇导航（支持跨页加载） |
-| **评论** | 评论列表分页、写评论弹窗、本地发布（Web 端持久化） |
+| **文章详情** | 富文本/纯文本展示，上一篇/下一篇导航（支持跨页加载），按 ID 单查 + 评论/作者资料并行加载 |
+| **评论** | 评论列表分页、写评论弹窗、本地发布（Web 端持久化）、编辑/删除自己的评论 |
 | **分享** | 复制文章链接到剪贴板 |
 
 ### 管理功能（需登录）
@@ -33,6 +33,9 @@
 - **本地 Overlay**：编辑保存、删除、发布评论在本地覆盖线上数据（Web 端持久化）
 - **用户隔离**：收藏/关注为登录用户私有；评论为公开可见
 - **主题**：支持浅色/深色模式，思源黑体字体
+- **错误处理**：统一异常透传 + 友好提示 + 重试，离线降级到本地缓存
+- **加载体验**：首屏骨架屏、翻页保留旧数据、图片淡入与错误兜底
+- **懒加载**：主导航 tab 首次访问才构建
 
 ---
 
@@ -40,11 +43,11 @@
 
 | 技术 | 用途 |
 |------|------|
-| Flutter 3.x | 跨平台 UI 框架 |
-| Dart 3.11+ | 开发语言 |
+| Flutter 3.44+ | 跨平台 UI 框架 |
+| Dart 3.12+ | 开发语言 |
 | flutter_quill | 富文本编辑与展示 |
 | http | 网络请求 |
-| shared_preferences | 本地持久化（主题、字体、设置、收藏/关注、Web 本地覆盖） |
+| shared_preferences | 本地持久化（主题、字体、设置、收藏/关注、Web 本地覆盖、搜索历史） |
 | flutter_riverpod | 状态管理 |
 | isar | 本地数据库（移动端） |
 
@@ -57,18 +60,22 @@ lib/
 ├── main.dart                 # 应用入口
 ├── app.dart                  # 根 Widget、主题配置
 ├── api/
-│   ├── api_config.dart       # API 配置（baseUrl）
-│   ├── api_client.dart       # HTTP 客户端封装
+│   ├── api_config.dart       # API 配置（baseUrl、环境切换）
+│   ├── api_client.dart       # HTTP 客户端封装（异常透传）
 │   └── blog_api.dart         # 博客 API（JSONPlaceholder 映射）
 ├── components/               # 通用组件
 │   ├── app-bar.dart
+│   ├── app_network_image.dart   # 统一网络图片加载（占位/淡入/错误兜底）
 │   ├── article_card.dart
 │   ├── article_action_sheet.dart
+│   ├── skeleton.dart            # 骨架屏组件
+│   ├── error_view.dart          # 错误态展示（含重试）
 │   └── ...
 ├── constants/
 │   ├── app_constants.dart    # 应用常量（品牌名等）
 │   └── color.dart            # 主题色
 ├── core/
+│   ├── app_exception.dart    # 统一异常
 │   └── app_typography.dart   # 排版样式
 ├── data/
 │   ├── mock_data.dart        # 静态 Mock 数据（分类、标签等）
@@ -78,12 +85,12 @@ lib/
 │   ├── blog_post.dart        # 文章模型
 │   └── comment.dart         # 评论模型
 ├── screens/                  # 页面
-│   ├── main_shell.dart       # 底部导航壳
-│   ├── home_screen.dart      # 首页
+│   ├── main_shell.dart       # 底部导航壳（tab 懒加载）
+│   ├── home_screen.dart      # 首页（骨架屏 + 翻页保留旧数据）
 │   ├── category_screen.dart # 分类页
-│   ├── search_screen.dart   # 搜索页
+│   ├── search_screen.dart   # 搜索页（搜索历史）
 │   ├── about_screen.dart    # 关于页
-│   ├── article_detail_screen.dart  # 文章详情
+│   ├── article_detail_screen.dart  # 文章详情（评论编辑/删除）
 │   ├── article_edit_screen.dart    # 文章编辑
 │   ├── article_management_screen.dart  # 文章管理
 │   ├── setting_screen.dart  # 设置页
@@ -91,7 +98,8 @@ lib/
 │   └── ...
 ├── services/
 │   ├── auth_service.dart     # 登录态管理（持久化）
-│   └── blog_service.dart     # 文章服务（edit/save/remove）
+│   ├── blog_service.dart     # 文章服务（edit/save/remove）
+│   └── search_history_service.dart  # 搜索历史（持久化）
 └── theme/
     ├── app_theme.dart        # 主题管理
     └── app_settings.dart     # 设置管理（字体、免打扰）
@@ -103,14 +111,16 @@ lib/
 
 ### 环境要求
 
-- Flutter SDK ^3.11.1
-- Dart ^3.11.1
+- Flutter SDK ^3.11.1（推荐 3.44+）
+- Dart ^3.11.1（推荐 3.12+）
 
 ### 安装依赖
 
 ```bash
 flutter pub get
 ```
+
+> Windows 若因 plugin 符号链接报错，需先在「设置 → 开发者模式」中开启开发者模式。
 
 ### 运行应用
 
@@ -125,10 +135,17 @@ flutter run -d android
 flutter run -d ios
 ```
 
-### 修改 API 地址
+### 环境配置
+
+`lib/api/api_config.dart` 支持开发/生产环境切换：
 
 ```dart
-static String baseUrl = 'https://jsonplaceholder.typicode.com';
+// 当前环境（默认 dev，使用 JSONPlaceholder 假数据）
+static AppEnvironment environment = AppEnvironment.dev;
+
+// 接入真实后端时切换
+ApiConfig.environment = AppEnvironment.prod;
+ApiConfig.prodBaseUrl = 'https://your-api.com';
 ```
 
 ---
@@ -144,7 +161,7 @@ static String baseUrl = 'https://jsonplaceholder.typicode.com';
 | `GET /posts/{postId}/comments` | 文章评论 |
 | `GET /users/{userId}` | 用户信息 |
 
-JSONPlaceholder 返回格式与内部模型不同，`blog_api.dart` 已做映射（如 `body` → `content`，随机分配分类和标签）。
+JSONPlaceholder 返回格式与内部模型不同，`blog_api.dart` 已做映射（如 `body` -> `content`，随机分配分类和标签）。
 
 ### Mock 模式（多用户登录）
 
@@ -192,5 +209,24 @@ JSONPlaceholder 返回格式与内部模型不同，`blog_api.dart` 已做映射
 - 首页：`kPageSize = 10`，`fetchHomeData(page)` 获取分页数据
 - 搜索页：默认显示第一页
 - 分类页：展示完整分类列表，无分页
+
+### 性能优化
+
+- **详情页按 ID 单查**：`BlogRepository.getPostById` 精确查询，避免拉取整张列表；评论与作者资料 `Future.wait` 并行加载
+- **主导航懒加载**：`MainShell` 的 `IndexedStack` 仅构建已访问的 tab
+- **翻页保留旧数据**：`HomeController` 翻页/刷新时保留已有列表，底部显示 loading，消除全屏闪烁
+- **骨架屏**：首次加载用 `HomeSkeleton` 替代白屏（`components/skeleton.dart`）
+- **图片加载**：统一用 `AppNetworkImage`（占位/淡入/错误兜底），勿直接用 `Image.network`
+
+### 错误处理
+
+- 统一异常 `AppException`（`core/app_exception.dart`），网络层抛出、Controller 捕获、`ErrorView` 展示 + 重试
+- 远程失败时有本地缓存则降级展示，无缓存才抛错；`syncInitialData` 失败不阻塞启动
+
+### 评论管理
+
+- 仅对自己的本地评论（`id` 以 `local_` 开头）显示编辑/删除
+- 编辑：底部弹窗预填内容，保存后标记"已编辑"
+- 删除：确认弹窗，从本地存储移除
 
 ---
